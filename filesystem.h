@@ -60,7 +60,7 @@ int f_read(FILE *file, void* buffer, int num){
 // check the permission of FILE, if not permitted to read, return -1
 	// get to the current position of the file according to block_index and position
 	// if it is error
-	return -1; 
+	
 	// update block_index and position
 }
 
@@ -68,7 +68,7 @@ int f_write(FILE* file, void* buffer, int num){
 	// check the permission of FILE, if it is not allowed, return -1
 	// get to the current position of the file according to block_index and position
 	// if it is error
-	return -1; 
+	
 	// update block_index and position
 }
 
@@ -84,6 +84,48 @@ int f_seek(FILE* file, int num){
 
 int f_rewind(FILE* file){
 	// if the file is not existing, return 0
+}
+
+void f_stat(FILE* file){
+	// print out the information of FILE file
+}
+
+int  f_delete(FILE* file){
+	// update the data blocks, set the index of the data block to the head of free data block
+	// clear inode & vnode, update free_inode & free_vnode
+}
+
+struct dirent* f_opendir(char* directory){
+	// do the path standardizing and permission check
+    // find the dirent of target directory and return it
+    // if the directory is not existing
+    // if the directory is not readable (by permission)
+}
+
+struct dirent* f_readdir(struct dirent* directory){
+	// read the current sub-directory according to the offset
+	// update the offset;
+	// if the directory is not readable(by permission), return NULL;
+}
+
+int f_closedir(struct dirent* directory) {
+	// if directory doesn’t exists
+}
+
+int  f_mkdir(char* path_name){
+    // if directory is not existing
+
+    // find the dirent according to the path_name
+    // if there is already a sub-directory within the same name 
+	// create a new struct dirent, store it into the data block of its parent directory
+}
+
+int f_rmdir(char* path_name) {
+	// if path_name is not existing
+
+    // find its parent directory and find the desired dirent
+    // delete all the files and directories inside the dirent, and remove the dirent from the direct_list
+    //delete the dirent from its parent’s data block
 }
 
 #endif
