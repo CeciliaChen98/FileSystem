@@ -35,7 +35,7 @@ typedef struct open_file{
     int  mode;	/* read/write */
 }FILE;
 
-typedef struct dirent{
+struct dirent{
 	int inode;
 	int type;
 	int offset; 	/* stores the index of current sub-directory */
@@ -57,7 +57,7 @@ FILE*  f_open(char* filename, int mode){
 
 
 int f_read(FILE *file, void* buffer, int num){
-// check the permission of FILE, if not permitted to read, return -1
+	// check the permission of FILE, if not permitted to read, return -1
 	// get to the current position of the file according to block_index and position
 	// if it is error
 	
