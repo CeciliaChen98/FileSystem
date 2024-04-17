@@ -33,7 +33,7 @@ typedef struct open_file{
     int block_index; /* index of the block inside inode */
     int position;	/* offset inside the data block */
     int  mode;	/* read/write */
-}FILE;
+}File;
 
 struct dirent{
 	int inode;
@@ -42,11 +42,16 @@ struct dirent{
 	char name[255];
 };
 
-
-FILE  file_table[max_num];
+struct Superblock sb;
+File  file_table[max_num];
 struct dirent* current_direct;
+struct dirent* root_direct;
 
-FILE*  f_open(char* filename, int mode){
+void disk_initialize(char* diskname){
+
+}
+
+File* f_open(char* filename, int mode){
 	// do the path standardizing and permission check
     // check if the file exists according to mode
     // if mode is read, and the file doesn’t exist
@@ -56,7 +61,7 @@ FILE*  f_open(char* filename, int mode){
 }
 
 
-int f_read(FILE *file, void* buffer, int num){
+int f_read(File *file, void* buffer, int num){
 	// check the permission of FILE, if not permitted to read, return -1
 	// get to the current position of the file according to block_index and position
 	// if it is error
@@ -64,7 +69,7 @@ int f_read(FILE *file, void* buffer, int num){
 	// update block_index and position
 }
 
-int f_write(FILE* file, void* buffer, int num){
+int f_write(File* file, void* buffer, int num){
 	// check the permission of FILE, if it is not allowed, return -1
 	// get to the current position of the file according to block_index and position
 	// if it is error
@@ -72,25 +77,25 @@ int f_write(FILE* file, void* buffer, int num){
 	// update block_index and position
 }
 
-int f_close(FILE* file){
+int f_close(File* file){
     // delete the file from file_table
     // if it is not existing, return 0; else return 1
 }
 
-int f_seek(FILE* file, int num){
+int f_seek(File* file, int num){
     // move according to num, block_index, and position
     // if failed, return 0; else, return 1
 }
 
-int f_rewind(FILE* file){
+int f_rewind(File* file){
 	// if the file is not existing, return 0
 }
 
-void f_stat(FILE* file){
+void f_stat(File* file){
 	// print out the information of FILE file
 }
 
-int  f_delete(FILE* file){
+int  f_delete(File* file){
 	// update the data blocks, set the index of the data block to the head of free data block
 	// clear inode & vnode, update free_inode & free_vnode
 }
