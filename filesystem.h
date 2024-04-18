@@ -1,7 +1,7 @@
 #ifndef __FILESYSTEM_H_
 #define __FILESYSTEM_H_
 
-#define N_DBLOCKS 10
+#define N_DBLOCKS 8
 #define N_IBLOCKS 4
 #define max_num 20
 
@@ -16,7 +16,6 @@ struct Superblock{
 struct inode{
 	int type; 		/* tell if it is a directory or a file */
 	int permissions;		/* 4 bytes */
-    char name[255];	/* the name of the file or directory */
 	struct inode* parent;	/* if the current vnode is not in use, 
     we will use parent to point to the next free inode */
   	int nlink; 		/* number of links to this file */
@@ -28,7 +27,7 @@ struct inode{
 };
 
 typedef struct open_file{
-	int index; 	/* assigned index when open */
+	char name[255];
     int inode; 	/* index of inode */
     int block_index; /* index of the block inside inode */
     int position;	/* offset inside the data block */
@@ -38,16 +37,22 @@ typedef struct open_file{
 struct dirent{
 	int inode;
 	int type;
-	int offset; 	/* stores the index of current sub-directory */
+	//int offset; 	/* stores the index of current sub-directory */
 	char name[255];
 };
 
-struct Superblock sb;
-File  file_table[max_num];
+struct Superblock* sb;
+char* inode_data; 
+FILE* diskimage; 
+File file_table[max_num];
 struct dirent* current_direct;
 struct dirent* root_direct;
 
-void disk_initialize(char* diskname){
+int disk_initialize(char* diskname){
+
+}
+
+int disk_close( ){
 
 }
 

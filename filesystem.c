@@ -1,6 +1,7 @@
 #include "filesystem.h"
-#include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define PATH_CURRENT 0
 #define PATH_ROOT 1
@@ -41,9 +42,17 @@ static struct Tokenizer* tokenize(char* arg){
     return path;
 }
 
-void disk_initialize(char* diskname){
-	
+int disk_initialize(char *diskname){
+    // open the disk image
+	diskimage = fopen(diskname,"w+r");
+    if(diskimage==NULL){return -1;}
+    fread(sb,512,1,diskimage);
+    fread(inode_data,sb->size*sb->data_offset,1,diskimage);
 }
+
+int disk_close(){
+    fclose(diskimage);
+} 
 
 File* f_open(char* filename, int mode){
 	// do the path standardizing and permission check
@@ -60,6 +69,11 @@ File* f_open(char* filename, int mode){
     }
 
     File* file = (File*)malloc(sizeof(File));
+    file->block_index = 0;
+    file->position = 0;
+    
+    strcpy(file->name,filename);
+
     return file;
     // check if the file exists according to mode
 
