@@ -1,0 +1,97 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <unistd.h>
+
+
+#define DEFAULT_SIZE_MB 1
+#define MB_TO_BYTES(mb) ((mb) * 1024 * 1024)
+#define BLOCK_SIZE 512
+#define N_DBLOCKS 10
+#define N_IBLOCKS 4
+#define INODES_PER_BLOCK (BLOCK_SIZE / sizeof(struct inode))
+
+struct Superblock {
+    int inode_offset;   /* offset of inode region in blocks */
+    int data_offset;    /* offset of data block region in blocks */
+    int free_inode;     /* index of first free inode */
+    int free_block;     /* index of first free data block */
+};
+
+struct inode {
+    int type;               /* directory or file */
+    int permissions;        /* permission bits */
+    int parent;             /* offset to next free inode if not used */
+    int nlink;              /* number of links to this file */
+    int size;               /* number of bytes in file */
+    int mtime;              /* last modification time */
+    int dblocks[N_DBLOCKS]; /* data block pointers */
+    int iblocks[N_IBLOCKS]; /* indirect block pointers */
+    int i2block;            /* doubly indirect block pointer */
+};
+
+void create_disk_image(const char* file_name, int size_mb) {
+    FILE* file = fopen(file_name, "wb");
+    if (file == NULL) {
+        perror("Failed to open file");
+        exit(EXIT_FAILURE);
+    }
+
+    // Initialize and write the superblock
+    struct Superblock sb = {
+        .inode_offset = 1,               // Inodes start right after the superblock
+        .data_offset = 1 + 8,            // Data blocks start after 8 inode blocks
+        .free_inode = 0,                 // First inode is free
+        .free_block = sb.data_offset     // First data block is free
+    };
+    fwrite(&sb, sizeof(sb), 1, file);
+
+    // Initialize inodes
+    struct inode empty_inode = {0};
+    for (int i = 0; i < 8 * INODES_PER_BLOCK; ++i) {
+        fwrite(&empty_inode, sizeof(empty_inode), 1, file);
+    }
+
+    // Initialize data blocks with free list
+    int total_blocks = size_mb * 1024 * 1024 / BLOCK_SIZE;
+    int free_blocks = total_blocks - sb.data_offset; // Total data blocks
+    char block[BLOCK_SIZE] = {0};
+
+    for (int i = 0; i < free_blocks; ++i) {
+        int next_free_block = (i < free_blocks - 1) ? sb.data_offset + i + 1 : -1;
+        memcpy(block, &next_free_block, sizeof(int)); // Store the index of the next free block
+        fwrite(block, BLOCK_SIZE, 1, file);
+    }
+
+    fclose(file);
+
+    printf("Disk image '%s' created with size %dMB, %d free blocks initialized.\n", file_name, size_mb, free_blocks);
+}
+
+int main(int argc, char* argv[]) {
+    int size_mb = DEFAULT_SIZE_MB;
+    char* file_name;
+    int option;
+
+    if (argc < 2) {
+        fprintf(stderr, "Usage: %s <filename> [-s size_mb]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    file_name = argv[1];
+
+    while ((option = getopt(argc, argv, "s:")) != -1) {
+        switch (option) {
+            case 's':
+                size_mb = atoi(optarg);
+                break;
+            default:
+                fprintf(stderr, "Usage: %s <filename> [-s size_mb]\n", argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
+
+    create_disk_image(file_name, size_mb);
+    return 0;
+}
