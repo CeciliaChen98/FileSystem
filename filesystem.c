@@ -16,12 +16,61 @@ struct Tokenizer{
 };
 
 // helper methods:
-static struct inode* getInode(int index){
-    return (struct inode*) inode_data + sb->size * index; 
+static struct inode getInode(int index){
+    return (struct inode) inode_data[index];
 }
 
-static void* getData(int index){
-    return (void*) inode_data + sb->size * index; 
+static char* getData(int index){
+    return (char*) inode_data + sb->size * index; 
+}
+
+static struct 
+
+
+static struct dirent* findDirent(struct inode inode, char* target, int type){
+    int read_num = 0;
+    // loop through direct blocks
+    for(int i = 0;i<N_DBLOCKS;i++){
+        int block_num = 0;
+        char* data = getData(inode.dblocks[i]);
+        while(block_num<sb->size){
+            struct dirent* cur_dirent = (struct dirent*)data;
+            // if find the desired one
+            if (strcmp(target,cur_dirent->name)==0&&cur_dirent->type==type){
+                return cur_dirent;
+            }
+            read_num += sizeof(struct dirent);
+            block_num += sizeof(struct dirent);
+            if(read_num>= inode.size){
+                return NULL;
+            }
+            data = (char*)data + sizeof(struct dirent*);
+        }
+    }
+    // loop through indirect blocks
+    for(int i = 0;i<N_IBLOCKS;i++){
+        int index = 0;
+        int* index_data = (int*)getData(inode.iblocks[i]);
+        while(index < sb->size/sizeof(int)){
+            int block_num = 0;
+            char* data = getData(index_data[index]);
+            while(block_num<sb->size){
+                struct dirent* cur_dirent = (struct dirent*)data;
+                // if find the desired one
+                if (strcmp(target,cur_dirent->name)==0&&cur_dirent->type==type){
+                    return cur_dirent;
+                }
+                read_num += sizeof(struct dirent);
+                block_num += sizeof(struct dirent);
+                if(read_num>= inode.size){
+                    return NULL;
+                }
+                data = (char*)data + sizeof(struct dirent*);
+            }
+            index++;
+        }
+    }
+    return NULL;
 }
 
 static struct Tokenizer* tokenize(char* arg){
@@ -87,13 +136,8 @@ File* f_open(char* filename, char* mode){
         }
         target = f_opendir(directname);
     }
-    struct inode* temp_inode = getInode(target->inode);
-    void* data = getData(temp_inode->dblocks[0]);
-    int index = 0;
-
-    while(index<temp_inode->size){
-        memcpy(,data,sb->size);
-    }
+    struct inode temp_inode = getInode(target->inode);
+    target = findDirent(temp_inode,path->tokens[path->length-1],FILE_TYPE);
 
     File* file = (File*)malloc(sizeof(File));
     file->block_index = 0;
@@ -111,21 +155,49 @@ File* f_open(char* filename, char* mode){
     // create a new FILE, set its mode, and add it to the open_list
 }
 
-struct dirent* f_opendir(char* directory){
-    // do the path standardizing and permission check
+// return null if not found, return pointer to the dirent if found
+struct dirent* f_opendir(char* directory) {
+    // Tokenize the input path
     struct Tokenizer* path = tokenize(directory);
-    // if the path is invalid (exceeds MAX_INPUT_SIZE)
-    if(path==NULL){
+    if (path == NULL) {
         return NULL;
     }
-    if(path->flag==PATH_CURRENT){
-        
 
-    }else{
+    struct dirent* cur = NULL;
 
+    // Decide starting directory based on path flag
+    if (path->flag == PATH_CURRENT) {
+        cur = current_direct;
+    } else {
+        // Assuming the only other option is to start from root
+        cur = root_direct;
     }
-	
-    // find the dirent of target directory and return it
-    // if the directory is not existing
-    // if the directory is not readable (by permission)
+
+    // Iterate over each token based on the number of tokens
+    for (int count = 0; count < path->length; count++) {
+        if (cur == NULL) {
+            printf("Directory not found\n");
+            return NULL;
+        }
+        // Perform directory matching or traversal
+        if (strcmp(cur->name, path->tokens[count]) == 0) {
+            // If the directory name matches the current token, continue to next token
+            continue;
+        }
+        // Move to the next directory in the path
+        cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+    }
+
+    cur->offset = 0;
+
+    // Return the final directory entry found, or NULL if not found
+    return cur;
 }
+
+struct dirent* f_readdir(struct dirent* directory){
+	// read the current sub-directory according to the offset
+	// update the offset;
+}
+
+
+

@@ -1,9 +1,10 @@
 #ifndef __FILESYSTEM_H_
 #define __FILESYSTEM_H_
 
-#define N_DBLOCKS 8
+#define N_DBLOCKS 10
 #define N_IBLOCKS 4
 #define max_num 20
+#define max_name 112
 
 struct Superblock{
     int size; 		/* size of data block: 512 */
@@ -27,7 +28,7 @@ struct inode{
 };
 
 typedef struct open_file{
-	char name[255];
+	char name[max_name];
     int inode; 	/* index of inode */
     int block_index; /* index of the block inside inode */
     int position;	/* offset inside the data block */
@@ -37,12 +38,13 @@ typedef struct open_file{
 struct dirent{
 	int inode;
 	int type;
-	//int offset; 	/* stores the index of current sub-directory */
-	char name[255];
+	int offset; 	/* stores the index of current sub-directory */
+	char name[max_name];
 };
 
 struct Superblock* sb;
-char* inode_data; 
+struct inode* inode_data; 
+char *block_data;
 FILE* diskimage; 
 File file_table[max_num];
 struct dirent* current_direct;
@@ -109,13 +111,11 @@ struct dirent* f_opendir(char* directory){
 	// do the path standardizing and permission check
     // find the dirent of target directory and return it
     // if the directory is not existing
-    // if the directory is not readable (by permission)
 }
 
 struct dirent* f_readdir(struct dirent* directory){
 	// read the current sub-directory according to the offset
 	// update the offset;
-	// if the directory is not readable(by permission), return NULL;
 }
 
 int f_closedir(struct dirent* directory) {
