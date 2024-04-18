@@ -48,7 +48,7 @@ File file_table[max_num];
 struct dirent* current_direct;
 struct dirent* root_direct;
 
-int disk_initialize(char* diskname){
+int disk_open(char* diskname){
 
 }
 
@@ -56,7 +56,7 @@ int disk_close( ){
 
 }
 
-File* f_open(char* filename, int mode){
+File* f_open(char* filename, char* mode){
 	// do the path standardizing and permission check
     // check if the file exists according to mode
     // if mode is read, and the file doesn’t exist
