@@ -34,9 +34,62 @@ static char* getData(int index){
     return (char*) inode_data + sb->size * index; 
 }
 
-static struct dirent* getDirent(struct dirent* open_dir){
+static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
+    int read_num = 0;
+    int count = 0;  // This will count the number of directory entries processed
 
+    // Loop through direct blocks
+    for (int i = 0; i < N_DBLOCKS; i++) {
+        int block_num = 0;
+        char* data = getData(inode.dblocks[i]);
+        while (block_num < sb->size) {
+            struct dirent* cur_dirent = (struct dirent*)data;
+            
+            if (count == INDEX + 2) {  // Check if the current count matches the desired INDEX
+                return cur_dirent;
+            }
+            
+            read_num += sizeof(struct dirent);
+            block_num += sizeof(struct dirent);
+            if (read_num >= inode.size) {
+                return NULL;  // No more entries to read
+            }
+            
+            data = (char*)data + sizeof(struct dirent);
+            count++;  // Increment the directory entry counter
+        }
+    }
+
+    // Loop through indirect blocks
+    for (int i = 0; i < N_IBLOCKS; i++) {
+        int index = 0;
+        int* index_data = (int*)getData(inode.iblocks[i]);
+        while (index < sb->size / sizeof(int)) {
+            int block_num = 0;
+            char* data = getData(index_data[index]);
+            while (block_num < sb->size) {
+                struct dirent* cur_dirent = (struct dirent*)data;
+
+                if (count == INDEX + 2) {  // Check if the current count matches the desired INDEX
+                    return cur_dirent;
+                }
+
+                read_num += sizeof(struct dirent);
+                block_num += sizeof(struct dirent);
+                if (read_num >= inode.size) {
+                    return NULL;  // No more entries to read
+                }
+                
+                data = (char*)data + sizeof(struct dirent);
+                count++;  // Increment the directory entry counter
+            }
+            index++;
+        }
+    }
+
+    return NULL;  // If no dirent was found at the specified index
 }
+
 
 
 static struct dirent* findDirent(struct inode inode, char* target, int type){
@@ -230,6 +283,8 @@ struct dirent* f_opendir(char* directory) {
 struct dirent* f_readdir(struct dirent* directory){
 	// read the current sub-directory according to the offset
 	// update the offset;
+    return findDirentByIndex(directory->inode, directory->offset);
+    directory->offset ++;
 }
 
 
