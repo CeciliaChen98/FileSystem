@@ -6,6 +6,13 @@
 #define max_num 20
 #define max_name 112
 
+enum Permission {
+    NONE = 0,
+    READ_ONLY = 1,
+    WRITE_ONLY = 2,
+    READ_WRITE = 3
+};
+
 struct Superblock{
     int size; 		/* size of data block: 512 */
     int inode_offset; 	/* offset of inode region */

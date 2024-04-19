@@ -9,6 +9,16 @@
 #define DIRECTORY_TYPE 1
 #define MAX_INPUT_SIZE 64
 
+enum Mode {
+    None = -1,
+    READ,
+    WRITE,
+    APPEND,
+    READ_WRITE, //file must exist
+    WRITE_READ,
+    APPEND_READ
+};
+
 struct Tokenizer{
     int flag;
     int length; 
@@ -24,7 +34,9 @@ static char* getData(int index){
     return (char*) inode_data + sb->size * index; 
 }
 
-static struct 
+static struct dirent* getDirent(struct dirent* open_dir){
+
+}
 
 
 static struct dirent* findDirent(struct inode inode, char* target, int type){
@@ -104,7 +116,7 @@ static struct Tokenizer* tokenize(char* arg){
 
 int disk_open(char *diskname){
     // open the disk image
-	diskimage = fopen(diskname,"w+r");
+	diskimage = fopen(diskname,"r+b");
     if(diskimage==NULL){return -1;}
 
     fread(sb,512,1,diskimage);
@@ -138,14 +150,35 @@ File* f_open(char* filename, char* mode){
     }
     struct inode temp_inode = getInode(target->inode);
     target = findDirent(temp_inode,path->tokens[path->length-1],FILE_TYPE);
+    int permission = getInode(target->inode).permissions;
+    free(path);
+
+    // mode
+    int int_mode = -1;
+    if(strcmp("r",mode)==0){int_mode = READ;}
+    else if(strcmp("r+",mode)==0){int_mode = READ_WRITE;}
+    else if(strcmp("w",mode)==0){int_mode = WRITE;}
+    else if(strcmp("w+",mode)==0){int_mode = WRITE_READ;}
+    else if(strcmp("a",mode)==0){int_mode = APPEND;}
+    else if(strcmp("a+",mode)==0){int_mode = APPEND_READ;}
+    else{
+        printf("Invalid mode\n");
+        return NULL;
+    }
+
+    if(int_mode==READ || int_mode==READ_WRITE){
+        if(target==NULL){
+            return NULL;
+        }
+    }
 
     File* file = (File*)malloc(sizeof(File));
     file->block_index = 0;
     file->position = 0;
-    
+    file->inode = target->inode;
+    file->mode = int_mode;
     strcpy(file->name,filename);
 
-    free(path);
     return file;
     // check if the file exists according to mode
 
