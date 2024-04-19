@@ -287,5 +287,56 @@ struct dirent* f_readdir(struct dirent* directory){
     directory->offset ++;
 }
 
+int f_closedir(struct dirent* directory) {
+	// if directory doesn’t exists
+    if (directory == NULL) {
+        return -1;
+    }
+	// set the offset of the directory to 0
+    directory->offset = 0;
+	return 0;
+}
+
+int f_rmdir(char* path_name) {
+	// if path_name is not existing
+        // Tokenize the input path
+    struct Tokenizer* path = tokenize(directory);
+    if (path == NULL) {
+        return NULL;
+    }
+
+    struct dirent* cur = NULL;
+
+    // Decide starting directory based on path flag
+    if (path->flag == PATH_CURRENT) {
+        cur = current_direct;
+    } else {
+        // Assuming the only other option is to start from root
+        cur = root_direct;
+    }
+
+    // Iterate over each token based on the number of tokens
+    for (int count = 0; count < path->length; count++) {
+        if (cur == NULL) {
+            printf("Directory not found\n");
+            return NULL;
+        }
+        // Perform directory matching or traversal
+        if (strcmp(cur->name, path->tokens[count]) == 0) {
+            // If the directory name matches the current token, continue to next token
+            continue;
+        }
+        // Move to the next directory in the path
+        cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+    }
+
+// find its parent directory and find the desired dirent
+
+
+// delete all the files and directories inside the dirent, and remove the dirent from the direct_list
+//delete the dirent from its parent’s data block
+return 1;
+}
+
 
 
