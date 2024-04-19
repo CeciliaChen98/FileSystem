@@ -19,10 +19,12 @@ enum Permission {
 };
 
 struct Superblock {
+    int size;
     int inode_offset;
     int data_offset;
     int free_inode;    // Index of first free inode
     int free_block;
+    char padding[BLOCK_SIZE - 5*sizeof(int)];
 };
 
 struct inode {
@@ -52,11 +54,11 @@ void create_disk_image(const char* file_name, int size_mb) {
     }
 
     // Initialize superblock
-    struct Superblock sb = {1, 1 + 8, 2, 2};  // Free inode starts at index 2
+    struct Superblock sb = {BLOCK_SIZE,0, 8, 2, 2};  // Free inode starts at index 2
     fwrite(&sb, sizeof(sb), 1, file);
 
     // Initialize the root directory inode
-    struct inode root_inode = {1, 0, -1, 1, 2 * sizeof(struct dirent), time(NULL), {0}, {0}, 0};
+    struct inode root_inode = {1, 0, -1, 1, 3 * sizeof(struct dirent), time(NULL), {0}, {0}, 0};
     fwrite(&root_inode, sizeof(root_inode), 1, file);
 
     // Initialize a file inode with fake content
@@ -86,6 +88,7 @@ void create_disk_image(const char* file_name, int size_mb) {
     int free_blocks = total_blocks - (sb.data_offset + 2);  // Adjust for root and file block
     for (int i = 0; i < free_blocks; ++i) {
         int next_free_block = (i < free_blocks - 1) ? sb.data_offset + 2 + i : -1;
+        memset(block, 0, BLOCK_SIZE);  // Clear the block
         memcpy(block, &next_free_block, sizeof(int));
         fwrite(block, BLOCK_SIZE, 1, file);
     }
