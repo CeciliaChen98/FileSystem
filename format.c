@@ -52,17 +52,17 @@ void create_disk_image(const char* file_name, int size_mb) {
     }
 
     // Initialize superblock
-    struct Superblock sb = {1, 1 + 8, 2, 1 + 8 + 2};  // Free inode starts at index 2
+    struct Superblock sb = {1, 1 + 8, 2, 2};  // Free inode starts at index 2
     fwrite(&sb, sizeof(sb), 1, file);
 
     // Initialize the root directory inode
-    struct inode root_inode = {1, 0, -1, 1, 2 * sizeof(struct dirent), time(NULL), {sb.data_offset, 0}, {0}, 0};
+    struct inode root_inode = {1, 0, -1, 1, 2 * sizeof(struct dirent), time(NULL), {0}, {0}, 0};
     fwrite(&root_inode, sizeof(root_inode), 1, file);
 
     // Initialize a file inode with fake content
     char file_content[] = "Hello, this is some text in the file.";
     int file_size = sizeof(file_content);
-    struct inode file_inode = {0, READ_WRITE, -1, 1, file_size, time(NULL), {sb.data_offset + 1, 0}, {0}, 0};
+    struct inode file_inode = {0, READ_WRITE, -1, 1, file_size, time(NULL), {1, 0}, {0}, 0};
     fwrite(&file_inode, sizeof(file_inode), 1, file);
 
     // Initialize remaining inodes and link them as free inodes
@@ -73,7 +73,7 @@ void create_disk_image(const char* file_name, int size_mb) {
     }
 
     // Write root directory data block with directory entries
-    struct dirent root_entries[3] = {{0, 1, 0, "."}, {0, 1, 1, ".."}, {1, 0, 2, "file.txt"}};
+    struct dirent root_entries[3] = {{0, 1, -1, "."}, {0, 1, -1, ".."}, {1, 0, -1, "file.txt"}};
     fwrite(root_entries, sizeof(root_entries), 1, file);
 
     // Write file content block

@@ -1,6 +1,7 @@
 #include "filesystem.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 #define PATH_CURRENT 0
@@ -38,7 +39,9 @@ static struct dirent* getDirent(struct dirent* open_dir){
 
 }
 
-
+static void createFile(struct dirent* cur_dirent){
+    struct inode file_inode = {0, READ_WRITE, -1, 1, 0, time(NULL), {sb->data_offset + 1, 0}, {0}, 0};
+}
 static struct dirent* findDirent(struct inode inode, char* target, int type){
     int read_num = 0;
     // loop through direct blocks
@@ -150,32 +153,42 @@ File* f_open(char* filename, char* mode){
     }
     struct inode temp_inode = getInode(target->inode);
     target = findDirent(temp_inode,path->tokens[path->length-1],FILE_TYPE);
-    int permission = getInode(target->inode).permissions;
+    int permission = NONE;
+    if(target!=NULL){permission = getInode(target->inode).permissions;}
     free(path);
 
     // mode
     int int_mode = -1;
-    if(strcmp("r",mode)==0){int_mode = READ;}
-    else if(strcmp("r+",mode)==0){int_mode = READ_WRITE;}
+    if(strcmp("r",mode)==0&&(permission==READ_ONLY||permission==READ_WRITE)){int_mode = READ;}
+    else if(strcmp("r+",mode)==0&&permission==READ_WRITE){int_mode = READ_WRITE;}
     else if(strcmp("w",mode)==0){int_mode = WRITE;}
     else if(strcmp("w+",mode)==0){int_mode = WRITE_READ;}
     else if(strcmp("a",mode)==0){int_mode = APPEND;}
-    else if(strcmp("a+",mode)==0){int_mode = APPEND_READ;}
+    else if(strcmp("a+",mode)==0&&permission==READ_WRITE){int_mode = APPEND_READ;}
     else{
         printf("Invalid mode\n");
         return NULL;
     }
-
-    if(int_mode==READ || int_mode==READ_WRITE){
-        if(target==NULL){
-            return NULL;
-        }
-    }
-
     File* file = (File*)malloc(sizeof(File));
     file->block_index = 0;
     file->position = 0;
     file->inode = target->inode;
+
+    if(int_mode==READ || int_mode==READ_WRITE){
+        if(target==NULL){
+            printf("File does not exist");
+            free(file);
+            return NULL;
+        }
+    }
+    else if(int_mode==WRITE || int_mode== WRITE_READ){
+        if(target==NULL){
+
+        }else{
+            
+        }
+    }
+
     file->mode = int_mode;
     strcpy(file->name,filename);
 
