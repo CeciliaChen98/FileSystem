@@ -24,7 +24,7 @@ struct Superblock{
 struct inode{
 	int type; 		/* tell if it is a directory or a file */
 	int permissions;		/* 4 bytes */
-	struct inode* parent;	/* if the current vnode is not in use, 
+	int parent;	/* if the current vnode is not in use, 
     we will use parent to point to the next free inode */
   	int nlink; 		/* number of links to this file */
     int size; 		/* numer of bytes in file */
@@ -52,6 +52,7 @@ struct dirent{
 struct Superblock* sb;
 struct inode* inode_data; 
 char *block_data;
+int block_size;
 FILE* diskimage; 
 File file_table[max_num];
 struct dirent* current_direct;

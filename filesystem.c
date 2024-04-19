@@ -27,12 +27,12 @@ struct Tokenizer{
 };
 
 // helper methods:
-static struct inode getInode(int index){
-    return (struct inode) inode_data[index];
+static struct inode* getInode(int index){
+    return inode_data + index;
 }
 
 static char* getData(int index){
-    return (char*) inode_data + sb->size * index; 
+    return (char*) inode_data + block_size * index; 
 }
 
 static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
@@ -43,7 +43,7 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     for (int i = 0; i < N_DBLOCKS; i++) {
         int block_num = 0;
         char* data = getData(inode.dblocks[i]);
-        while (block_num < sb->size) {
+        while (block_num < block_size) {
             struct dirent* cur_dirent = (struct dirent*)data;
             
             if (count == INDEX + 2) {  // Check if the current count matches the desired INDEX
@@ -65,10 +65,10 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     for (int i = 0; i < N_IBLOCKS; i++) {
         int index = 0;
         int* index_data = (int*)getData(inode.iblocks[i]);
-        while (index < sb->size / sizeof(int)) {
+        while (index < block_size / sizeof(int)) {
             int block_num = 0;
             char* data = getData(index_data[index]);
-            while (block_num < sb->size) {
+            while (block_num < block_size) {
                 struct dirent* cur_dirent = (struct dirent*)data;
 
                 if (count == INDEX + 2) {  // Check if the current count matches the desired INDEX
@@ -91,9 +91,83 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     return NULL;  // If no dirent was found at the specified index
 }
 
+static void* appendPosition(struct inode* inode){
+    // calculate the offset
+    int block_num = inode->size / block_size;
+    int last_block = block_num - 1;
+    int offset = inode->size % block_size;
 
-static void createFile(struct dirent* cur_dirent){
-    struct inode file_inode = {0, READ_WRITE, -1, 1, 0, time(NULL), {sb->data_offset + 1, 0}, {0}, 0};
+    // if need to assign a new data block
+    if(offset == 0){
+        last_block++;
+        // rearrange the free data block 
+        // if no more free data block
+        if(sb->free_block==-1){return NULL;}
+        int head_free = *(int*)getData(sb->free_block);
+        int data_file;
+        if(head_free==-1){
+            data_file = sb->free_block;
+            sb->free_block = -1;
+        }else{
+            data_file = head_free;
+            int next_free = *(int*)getData(head_free);
+            int* ptr = (int*)getData(sb->free_block);
+            *ptr = next_free;
+        }
+        if(last_block<N_DBLOCKS){
+            inode->dblocks[last_block] = data_file;
+            return getData(data_file);
+        }
+        last_block = last_block-N_DBLOCKS;
+        for(int i=0;i<N_IBLOCKS;i++){
+            if(last_block<block_size/sizeof(int)){
+                int* ptr = (int*)getData(inode->iblocks[i])+last_block;
+                *ptr = data_file;
+                return getData(data_file);
+            }else{
+                last_block = last_block - block_size/sizeof(int);
+            }
+        }
+    }else{
+        if(last_block<N_DBLOCKS){
+            return getData(inode->dblocks[last_block])+offset;
+        }
+        last_block = last_block-N_DBLOCKS;
+        for(int i=0;i<N_IBLOCKS;i++){
+            if(last_block<block_size/sizeof(int)){
+                return getData((int*)getData(inode->iblocks[i])+last_block)+offset;
+            }else{
+                last_block = last_block - block_size/sizeof(int);
+            }
+        }
+    }
+}
+
+static struct dirent* createFile(struct dirent* cur_dirent){
+
+    // we don't assign any data block for a new file
+
+    // rearrange the free inode 
+    int free_i = getInode(sb->free_inode)->parent;
+    struct inode* file_inode;
+    if(free_i!=-1){
+        int next_i = getInode(free_i)->parent;
+        file_inode = getInode(free_i);
+        getInode(sb->free_inode)->parent = next_i;
+    }else{
+        file_inode = getInode(sb->free_inode);
+        sb->free_inode = -1;
+    }
+    // modify the inode to store all the information
+    file_inode -> type = FILE_TYPE;
+    file_inode -> permissions = READ_WRITE;
+    file_inode -> parent = cur_dirent->inode;
+    file_inode -> nlink = 1;
+    file_inode -> size = 0;
+    file_inode -> mtime = time(NULL);    
+
+    struct dirent direct*  
+
 }
 
 static struct dirent* findDirent(struct inode inode, char* target, int type){
@@ -177,8 +251,8 @@ int disk_open(char *diskname){
     if(diskimage==NULL){return -1;}
 
     fread(sb,512,1,diskimage);
-    fread(inode_data,sb->size*sb->data_offset,1,diskimage);
-
+    block_size = sb->size;
+    fread(inode_data,block_size*sb->data_offset,1,diskimage);
     current_direct->inode = 0;
     current_direct->type = DIRECTORY_TYPE;
     strcpy(current_direct->name,"root");
@@ -205,10 +279,10 @@ File* f_open(char* filename, char* mode){
         }
         target = f_opendir(directname);
     }
-    struct inode temp_inode = getInode(target->inode);
-    target = findDirent(temp_inode,path->tokens[path->length-1],FILE_TYPE);
+    struct inode* temp_inode = getInode(target->inode);
+    target = findDirent(*temp_inode,path->tokens[path->length-1],FILE_TYPE);
     int permission = NONE;
-    if(target!=NULL){permission = getInode(target->inode).permissions;}
+    if(target!=NULL){permission = getInode(target->inode)->permissions;}
     free(path);
 
     // mode
@@ -297,7 +371,7 @@ struct dirent* f_opendir(char* directory) {
 struct dirent* f_readdir(struct dirent* directory){
 	// read the current sub-directory according to the offset
 	// update the offset;
-    return findDirentByIndex(directory->inode, directory->offset);
+    return findDirentByIndex(*getInode(directory->inode), directory->offset);
     directory->offset ++;
 }
 
@@ -313,8 +387,8 @@ int f_closedir(struct dirent* directory) {
 
 int f_rmdir(char* path_name) {
 	// if path_name is not existing
-        // Tokenize the input path
-    struct Tokenizer* path = tokenize(directory);
+    // Tokenize the input path
+    struct Tokenizer* path = tokenize(path_name);
     if (path == NULL) {
         return NULL;
     }
@@ -344,12 +418,12 @@ int f_rmdir(char* path_name) {
         cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
     }
 
-// find its parent directory and find the desired dirent
+    // find its parent directory and find the desired dirent
 
 
-// delete all the files and directories inside the dirent, and remove the dirent from the direct_list
-//delete the dirent from its parent’s data block
-return 1;
+    // delete all the files and directories inside the dirent, and remove the dirent from the direct_list
+    //delete the dirent from its parent’s data block
+    return 1;
 }
 
 
