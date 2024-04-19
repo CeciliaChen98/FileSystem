@@ -35,13 +35,67 @@ static char* getData(int index){
     return (char*) inode_data + sb->size * index; 
 }
 
-static struct dirent* getDirent(struct dirent* open_dir){
+static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
+    int read_num = 0;
+    int count = 0;  // This will count the number of directory entries processed
 
+    // Loop through direct blocks
+    for (int i = 0; i < N_DBLOCKS; i++) {
+        int block_num = 0;
+        char* data = getData(inode.dblocks[i]);
+        while (block_num < sb->size) {
+            struct dirent* cur_dirent = (struct dirent*)data;
+            
+            if (count == INDEX + 2) {  // Check if the current count matches the desired INDEX
+                return cur_dirent;
+            }
+            
+            read_num += sizeof(struct dirent);
+            block_num += sizeof(struct dirent);
+            if (read_num >= inode.size) {
+                return NULL;  // No more entries to read
+            }
+            
+            data = (char*)data + sizeof(struct dirent);
+            count++;  // Increment the directory entry counter
+        }
+    }
+
+    // Loop through indirect blocks
+    for (int i = 0; i < N_IBLOCKS; i++) {
+        int index = 0;
+        int* index_data = (int*)getData(inode.iblocks[i]);
+        while (index < sb->size / sizeof(int)) {
+            int block_num = 0;
+            char* data = getData(index_data[index]);
+            while (block_num < sb->size) {
+                struct dirent* cur_dirent = (struct dirent*)data;
+
+                if (count == INDEX + 2) {  // Check if the current count matches the desired INDEX
+                    return cur_dirent;
+                }
+
+                read_num += sizeof(struct dirent);
+                block_num += sizeof(struct dirent);
+                if (read_num >= inode.size) {
+                    return NULL;  // No more entries to read
+                }
+                
+                data = (char*)data + sizeof(struct dirent);
+                count++;  // Increment the directory entry counter
+            }
+            index++;
+        }
+    }
+
+    return NULL;  // If no dirent was found at the specified index
 }
+
 
 static void createFile(struct dirent* cur_dirent){
     struct inode file_inode = {0, READ_WRITE, -1, 1, 0, time(NULL), {sb->data_offset + 1, 0}, {0}, 0};
 }
+
 static struct dirent* findDirent(struct inode inode, char* target, int type){
     int read_num = 0;
     // loop through direct blocks
@@ -243,6 +297,59 @@ struct dirent* f_opendir(char* directory) {
 struct dirent* f_readdir(struct dirent* directory){
 	// read the current sub-directory according to the offset
 	// update the offset;
+    return findDirentByIndex(directory->inode, directory->offset);
+    directory->offset ++;
+}
+
+int f_closedir(struct dirent* directory) {
+	// if directory doesn’t exists
+    if (directory == NULL) {
+        return -1;
+    }
+	// set the offset of the directory to 0
+    directory->offset = 0;
+	return 0;
+}
+
+int f_rmdir(char* path_name) {
+	// if path_name is not existing
+        // Tokenize the input path
+    struct Tokenizer* path = tokenize(directory);
+    if (path == NULL) {
+        return NULL;
+    }
+
+    struct dirent* cur = NULL;
+
+    // Decide starting directory based on path flag
+    if (path->flag == PATH_CURRENT) {
+        cur = current_direct;
+    } else {
+        // Assuming the only other option is to start from root
+        cur = root_direct;
+    }
+
+    // Iterate over each token based on the number of tokens
+    for (int count = 0; count < path->length; count++) {
+        if (cur == NULL) {
+            printf("Directory not found\n");
+            return NULL;
+        }
+        // Perform directory matching or traversal
+        if (strcmp(cur->name, path->tokens[count]) == 0) {
+            // If the directory name matches the current token, continue to next token
+            continue;
+        }
+        // Move to the next directory in the path
+        cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+    }
+
+// find its parent directory and find the desired dirent
+
+
+// delete all the files and directories inside the dirent, and remove the dirent from the direct_list
+//delete the dirent from its parent’s data block
+return 1;
 }
 
 
