@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <assert.h>
 
 #define DEFAULT_SIZE_MB 1
 #define MB_TO_BYTES(mb) ((mb) * 1024 * 1024)
@@ -74,8 +75,15 @@ void create_disk_image(const char* file_name, int size_mb) {
         fwrite(&empty_inode, sizeof(empty_inode), 1, file);
     }
 
+    int data_block_offset = (sb.data_offset + 1) * BLOCK_SIZE;
+    if (fseek(file, data_block_offset, SEEK_SET) != 0) {
+        perror("Error positioning file pointer to data region");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
     // Write root directory data block with directory entries
-    struct dirent root_entries[3] = {{0, 1, -1, "."}, {0, 1, -1, ".."}, {1, 0, -1, "file.txt"}};
+    struct dirent root_entries[3] = {{0, 1, -1, "."}, {0, -1, -1, ".."}, {1, 0, -1, "file.txt"}};
     fwrite(root_entries, sizeof(root_entries), 1, file);
 
     // Write file content block
@@ -85,7 +93,7 @@ void create_disk_image(const char* file_name, int size_mb) {
 
     // Initialize free data blocks
     int total_blocks = size_mb * 1024 * 1024 / BLOCK_SIZE;
-    int free_blocks = total_blocks - (sb.data_offset + 2);  // Adjust for root and file block
+    int free_blocks = total_blocks - (sb.data_offset + 3);  // Adjust for root and file block
     for (int i = 0; i < free_blocks; ++i) {
         int next_free_block = (i < free_blocks - 1) ? sb.data_offset + 2 + i : -1;
         memset(block, 0, BLOCK_SIZE);  // Clear the block
@@ -96,6 +104,49 @@ void create_disk_image(const char* file_name, int size_mb) {
     fclose(file);
     printf("Disk image '%s' created with size %dMB, %d free blocks initialized.\n", file_name, size_mb, free_blocks);
 }
+
+void print_disk_contents(const char* file_name) {
+    FILE *file = fopen(file_name, "rb");
+    if (!file) {
+        perror("Failed to open file");
+        exit(EXIT_FAILURE);
+    }
+
+    struct Superblock sb;
+    if (fread(&sb, sizeof(sb), 1, file) != 1) {
+        perror("Failed to read superblock");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Superblock:\n");
+    printf("  Size: %d\n  Inode Offset: %d\n  Data Offset: %d\n  Free Inode: %d\n  Free Block: %d\n",
+           sb.size, sb.inode_offset, sb.data_offset, sb.free_inode, sb.free_block);
+
+    struct inode in;
+    printf("\nInodes:\n");
+    fseek(file, (sb.inode_offset+1) * BLOCK_SIZE , SEEK_SET);
+    for (int i = 0; i < 8 * INODES_PER_BLOCK; ++i) {
+        if (fread(&in, sizeof(struct inode), 1, file) != 1) {
+            break;  // Stop if we fail to read an inode
+        }
+        printf("Inode %d: Type %d, Permissions %d, Size %d, Mtime %d\n",
+               i, in.type, in.permissions, in.size, in.mtime);
+    }
+
+    // Assuming directory entries are located right at the data offset
+    printf("\nDirectory Entries:\n");
+    fseek(file, (sb.data_offset+1) * BLOCK_SIZE, SEEK_SET);
+    struct dirent de;
+    while (fread(&de, sizeof(struct dirent), 1, file) == 1) {
+        if (strlen(de.name) > 0) {  // Only print valid entries
+            printf("  Entry: %s, Inode: %d, Type: %d\n", de.name, de.inode, de.type);
+        }
+    }
+
+    fclose(file);
+}
+
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -116,5 +167,7 @@ int main(int argc, char* argv[]) {
     }
 
     create_disk_image(file_name, size_mb);
+    //print_disk_contents(file_name);
     return 0;
 }
+
