@@ -86,16 +86,23 @@ void create_disk_image(const char* file_name, int size_mb) {
     struct dirent root_entries[3] = {{0, 1, -1, "."}, {0, -1, -1, ".."}, {1, 0, -1, "file.txt"}};
     fwrite(root_entries, sizeof(root_entries), 1, file);
 
+
+
     // Write file content block
     char block[BLOCK_SIZE] = {0};
     memcpy(block, file_content, file_size);
+    if (fseek(file, data_block_offset + BLOCK_SIZE, SEEK_SET) != 0) {
+        perror("Error positioning file pointer to data region");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
     fwrite(block, BLOCK_SIZE, 1, file);
 
     // Initialize free data blocks
     int total_blocks = size_mb * 1024 * 1024 / BLOCK_SIZE;
     int free_blocks = total_blocks - (sb.data_offset + 3);  // Adjust for root and file block
     for (int i = 0; i < free_blocks; ++i) {
-        int next_free_block = (i < free_blocks - 1) ? sb.data_offset + 2 + i : -1;
+        int next_free_block = (i < free_blocks - 1) ? sb.data_offset + 3 + i : -1;
         memset(block, 0, BLOCK_SIZE);  // Clear the block
         memcpy(block, &next_free_block, sizeof(int));
         fwrite(block, BLOCK_SIZE, 1, file);
