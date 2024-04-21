@@ -26,7 +26,7 @@ int main(int argc, char* argv[]){
     test = f_open("test.txt","w");
     if(test==NULL){}
     else{
-        f_write(test,content,37);
+        f_write(test,content,38);
         f_close(test);
         test = f_open("test.txt","r");
         char test_content[38];
@@ -43,10 +43,9 @@ int main(int argc, char* argv[]){
         f_test(3,0);
         char new_content[76];
         f_read(test,new_content,76);
-        printf("%c\n",new_content[70]);
+        printf("%s\n",new_content);
         f_close(test);
     }
-    
 
     if(disk_close()!=1){
         printf("Error2\n");

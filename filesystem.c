@@ -761,11 +761,11 @@ int f_read(File *file, void* buffer, int num){
         char* data = appendPosition(inode,file->block_index,file->position);
 	    // if there is no more data to read
 	    if(data==NULL){return read_num;}
-        printf("need byts:%d\n",need_bytes);
+        
         // no enough bytes to read; the last time to read
         if(inode->size-(file->block_index*block_size+file->position)<need_bytes){
             need_bytes = inode->size-(file->block_index*block_size+file->position);
-            printf("need byts:%d\n",need_bytes);
+            
             file->position += need_bytes;
             memcpy((char*)buffer+read_num,data,need_bytes);
             read_num += need_bytes;
