@@ -77,7 +77,7 @@ int f_seek(File* file, int num);
 
 int f_rewind(File* file);
 
-void f_stat(char* filename);
+int f_stat(char* filename);
 
 int  f_delete(char* filename);
 
