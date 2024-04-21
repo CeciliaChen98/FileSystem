@@ -725,7 +725,47 @@ int f_read(File *file, void* buffer, int num){
     return read_num;
 }
 
-void f_stat(char* filename){
+int f_stat(char* filename){
+    if (path_name == NULL) {
+        printf("Invalid path name\n");
+        return -1;
+    }
+
+    struct Tokenizer* path = tokenize(path_name);
+    if (path == NULL) {
+        return -1;  // Failed to tokenize the path
+    }
+
+    struct dirent* cur = (path->flag == PATH_CURRENT) ? current_direct : root_direct;
+
+    for (int count = 0; count < path->length; count++) {
+        if (cur == NULL) {
+            printf("Directory/file not found\n");
+            return -1;
+        }
+
+        if (count == path->length - 1) {  // Last token, should be the directory/file to check state
+            if (strcmp(cur->name, path->tokens[count]) != 0) {
+                cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+                if (cur == NULL) {
+                    cur = findDirent(inode_data[cur->inode], path->tokens[count], FILE_TYPE);
+                }
+                if (cur == NULL) {
+                    printf("Directory/file not found\n");
+                    return -1;
+                }
+                printf("File size: %d\n", getInode(cur->inode)->size);
+                printf("File type: %d\n", cur->type);
+                printf("Inode index: %d\n", cur->inode);
+                printf("Number of hard link: %d\n", getInode(cur->inode)->nlink);
+                printf("Permission: %d\n", getInode(cur->inode)->permissions);
+
+                return 0;
+            }
+        } else {
+            cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+        }
+    }
 
 }
 
