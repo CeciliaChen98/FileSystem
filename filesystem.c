@@ -32,7 +32,21 @@ static struct inode* getInode(int index){
 }
 
 static char* getData(int index){
-    return (char*) block_data + block_size * index; 
+    return (char*)block_data + block_size * index; 
+}
+
+void f_test(int index){
+    struct inode* inode = getInode(index);
+    printf("Ionde[%d]\n",index);
+    printf("type: %d\n",inode->type);
+    printf("size: %d\n",inode->size);
+    printf("block 1: %d\n",inode->dblocks[0]);
+    printf("%d\n",inode->size);
+    //char* data = (char*) malloc(inode->size);
+    //printf("%ld\n",sizeof(data));
+    char* data = getData(inode->dblocks[0]);
+    printf("%s\n",((struct dirent*)data+2)->name);
+    //free(data);
 }
 
 void freeBlock(int blockindex) {
@@ -115,8 +129,6 @@ static void cleaninode(struct inode* inode) {
     inode->nlink = 0;        // Reset number of links
 }
 
-
-
 static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     int read_num = 0;
     int count = 0;  // This will count the number of directory entries processed
@@ -169,7 +181,6 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
             index++;
         }
     }
-
     return NULL;  // If no dirent was found at the specified index
 }
 
@@ -346,23 +357,25 @@ int disk_open(char *diskname){
     }
     
     block_size = sb->size;
-    printf("superblock: size %d inode_offset: %d\n",sb->size,sb->inode_offset);
-    int inode_num = block_size*(sb->data_offset-sb->data_offset);
+    int inode_num = block_size*(sb->data_offset-sb->inode_offset);
     inode_data = (struct inode*)malloc(inode_num);
-    if(fread(inode_data,inode_num,1,diskimage)<inode_num){
+    
+    if(fread(inode_data,inode_num,1,diskimage)<1){
         printf("Can't read inode region\n");
         return 0;
     }
-    printf("inode %d\n",(inode_data+1)->size);
+    printf("inode %d\n",inode_data->size);
+    current_direct = (struct dirent*)malloc(sizeof(struct dirent*));
     current_direct->inode = 0;
     current_direct->type = DIRECTORY_TYPE;
     strcpy(current_direct->name,"root");
-
+    
     if (fseek(diskimage, 0, SEEK_END) != 0) {
         perror("Error seeking file");
         fclose(diskimage); // Close the file
         return -1; // Exit program with an error
     }
+    
     int num_bytes = ftell(diskimage);
     if (num_bytes == -1) {
         perror("Error getting file size");
@@ -370,32 +383,36 @@ int disk_open(char *diskname){
         return 1; // Exit program with an error
     }
     fseek(diskimage,512+inode_num,SEEK_SET);
+    printf("num of bytes %d\n",num_bytes); //好像少了128bytes？
+
     int data_bytes = num_bytes-512-inode_num;
     block_data = (char*)malloc(data_bytes);
     if(fread(block_data,data_bytes,1,diskimage)==0){
         printf("Can't read data block region\n");
         return 0;
     }
+    //printf("%s\n",((struct dirent*)block_data+2)->name);
     return 1;
 }
 
 int disk_close(){
+    free(current_direct);
     fseek(diskimage,0,SEEK_SET);
-    if(fwrite(sb,512,1,diskimage)!=512){
+    if(fwrite(sb,512,1,diskimage)<1){
         free(sb);
         free(inode_data);
         free(block_data);
         fclose(diskimage);
         return 0;
     }
-    if(fwrite(inode_data,sizeof(inode_data),1,diskimage)!=sizeof(inode_data)){
+    if(fwrite(inode_data,sizeof(inode_data),1,diskimage)<1){
         free(sb);
         free(inode_data);
         free(block_data);
         fclose(diskimage);
         return 0;
     }
-    if(fwrite(block_data,sizeof(block_data),1,diskimage)!=sizeof(block_data)){
+    if(fwrite(block_data,sizeof(block_data),1,diskimage)<1){
         free(sb);
         free(inode_data);
         free(block_data);
@@ -546,6 +563,11 @@ struct dirent* f_opendir(char* directory) {
 
     // Return the final directory entry found, or NULL if not found
     return cur;
+}
+
+int f_close(File* file){
+    free(file);
+    return 0;
 }
 
 struct dirent* f_readdir(struct dirent* directory){

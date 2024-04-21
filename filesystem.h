@@ -6,7 +6,7 @@
 #define N_DBLOCKS 10
 #define N_IBLOCKS 4
 #define max_num 20
-#define max_name 112
+#define max_name 116
 
 enum Permission {
     NONE = 0,
@@ -53,7 +53,7 @@ struct dirent{
 
 struct Superblock* sb;
 struct inode* inode_data; 
-char *block_data;
+char* block_data;
 int block_size;
 FILE* diskimage; 
 File file_table[max_num];
@@ -90,5 +90,7 @@ int f_closedir(struct dirent* directory);
 int  f_mkdir(char* path_name);
 
 int f_rmdir(char* path_name);
+
+void f_test(int index);
 
 #endif

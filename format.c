@@ -44,7 +44,7 @@ struct dirent {
     int inode;
     int type;
     int offset;
-    char name[255];
+    char name[116];
 };
 
 void create_disk_image(const char* file_name, int size_mb) {
