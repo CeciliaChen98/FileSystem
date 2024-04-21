@@ -21,6 +21,7 @@ struct Superblock{
     int data_offset; 		/* offset of data block region */
     int free_inode; 		/* Head of free inode list */
     int free_block; 		/*Head of free block list */
+    //char padding[512 - 5*sizeof(int)];
 };
 
 struct inode{
@@ -91,6 +92,6 @@ int  f_mkdir(char* path_name);
 
 int f_rmdir(char* path_name);
 
-void f_test(int index);
+void f_test(int index,int block);
 
 #endif

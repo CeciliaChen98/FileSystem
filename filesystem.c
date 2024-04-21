@@ -35,7 +35,7 @@ static char* getData(int index){
     return (char*)block_data + block_size * index; 
 }
 
-void f_test(int index){
+void f_test(int index,int block){
     struct inode* inode = getInode(index);
     printf("Ionde[%d]\n",index);
     printf("type: %d\n",inode->type);
@@ -45,7 +45,7 @@ void f_test(int index){
     //char* data = (char*) malloc(inode->size);
     //printf("%ld\n",sizeof(data));
     char* data = getData(inode->dblocks[0]);
-    printf("%s\n",((struct dirent*)data+2)->name);
+    printf("%s\n",((struct dirent*)data+block)->name);
     //free(data);
 }
 
@@ -72,6 +72,20 @@ void freeBlock(int blockindex) {
 
     // Update the first block's pointer to point to the new block
     *first_block_data = blockindex;
+}
+
+static void freeTokenizer(struct Tokenizer* tokenizer) {
+    if (tokenizer == NULL) {
+        return; // Nothing to free
+    }
+
+    // Free memory for each token
+    for (int i = 0; i < tokenizer->length; i++) {
+        free(tokenizer->tokens[i]);
+    }
+
+    // Free memory for the Tokenizer structure itself
+    free(tokenizer);
 }
 
 static void cleaninode(struct inode* inode) {
@@ -185,12 +199,12 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
 }
 
 static void* appendPosition(struct inode* inode,int block_index, int position){
+    //printf("block_position: %d, position: %d\n",block_index,position);
     // calculate the offset
     int last_block = block_index;
     int calculated_size = block_index*block_size+position;
     // if need to assign a new data block
     if(calculated_size == inode->size && position == 0){
-        last_block++;
         // rearrange the free data block 
         // if no more free data block
         if(sb->free_block==-1){return NULL;}
@@ -238,7 +252,6 @@ static void* appendPosition(struct inode* inode,int block_index, int position){
 static struct dirent* createFile(struct dirent* cur_dirent, char* name){
 
     // we don't assign any data block for a new file
-
     // rearrange the free inode 
     if(sb->free_inode==-1){return NULL;}
     int free_i = getInode(sb->free_inode)->parent;
@@ -260,24 +273,27 @@ static struct dirent* createFile(struct dirent* cur_dirent, char* name){
     file_inode -> size = 0;
     file_inode -> mtime = time(NULL);    
 
-    struct dirent* direct = (struct dirent*)appendPosition(file_inode,0,0);
+    struct inode* inode = getInode(cur_dirent->inode);;
+    struct dirent* direct = (struct dirent*)appendPosition(inode,inode->size/block_size,inode->size%block_size);
+    inode->size += sizeof(struct dirent);
     if(direct==NULL){return NULL;}
     direct->inode = free_i; 
     direct->type = FILE_TYPE;
     direct->offset = -1;
     strcpy(direct->name,name);
+
     return direct;
 
 }
 
 static struct dirent* findDirent(struct inode inode, char* target, int type){
+
     int read_num = 0;
     // loop through direct blocks
     for(int i = 0;i<N_DBLOCKS;i++){
         int block_num = 0;
-        char* data = getData(inode.dblocks[i]);
+        struct dirent* cur_dirent = (struct dirent*) getData(inode.dblocks[i]);
         while(block_num<sb->size){
-            struct dirent* cur_dirent = (struct dirent*)data;
             // if find the desired one
             if (strcmp(target,cur_dirent->name)==0&&cur_dirent->type==type){
                 return cur_dirent;
@@ -287,7 +303,7 @@ static struct dirent* findDirent(struct inode inode, char* target, int type){
             if(read_num>= inode.size){
                 return NULL;
             }
-            data = (char*)data + sizeof(struct dirent*);
+            cur_dirent = cur_dirent+1;
         }
     }
     // loop through indirect blocks
@@ -317,33 +333,54 @@ static struct dirent* findDirent(struct inode inode, char* target, int type){
 }
 
 static struct Tokenizer* tokenize(char* arg){
-    // initialize a toeknizer
-    struct Tokenizer* path = (struct Tokenizer*)malloc(sizeof(struct Tokenizer));
+    // Initialize a tokenizer
+    struct Tokenizer* path = malloc(sizeof(struct Tokenizer));
+    if (path == NULL) {
+        return NULL; // Failed to allocate memory for Tokenizer
+    }
+
     int i = 0;
-    if(arg[i]=='/'||arg[i]=='~'){
+    if(arg[i]=='/' || arg[i]=='~'){
         path->flag = PATH_ROOT;
         i++;
-    }else{
+    } else {
         path->flag = PATH_CURRENT;
     }
-    char* arg_copy = strdup(arg+i);
-    char* token = strtok(arg_copy,"/");
 
+    char* arg_copy = strdup(arg + i);
+    if (arg_copy == NULL) {
+        free(path);
+        return NULL; // Failed to allocate memory for arg_copy
+    }
+
+    char* token = strtok(arg_copy, "/");
     int arg_count = 0;
-    // tokenize input
+    // Tokenize input
     while (token != NULL) {
-        if(arg_count>=MAX_INPUT_SIZE){
+        if(arg_count >= MAX_INPUT_SIZE){
+            free(arg_copy);
+            free(path);
+            return NULL; // Reached maximum input size
+        }
+        path->tokens[arg_count] = strdup(token); // Allocate memory and copy token string
+        if (path->tokens[arg_count] == NULL) {
+            // Failed to allocate memory for token string
+            // Clean up allocated memory before returning NULL
+            for (int j = 0; j < arg_count; j++) {
+                free(path->tokens[j]);
+            }
+            free(arg_copy);
             free(path);
             return NULL;
         }
-        path->tokens[arg_count] = token;
         arg_count++;
         token = strtok(NULL, "/");
     } 
-    free(arg_copy); 
-    path->length = arg_count;
+    free(arg_copy); // Free the memory allocated for arg_copy
+    path->length = arg_count; 
     return path;
 }
+
 
 int disk_open(char *diskname){
     // open the disk image
@@ -364,8 +401,14 @@ int disk_open(char *diskname){
         printf("Can't read inode region\n");
         return 0;
     }
+    root_direct = malloc(sizeof(struct dirent));
+    root_direct->inode = 0;
+    root_direct->offset = -1;
+    root_direct->type = DIRECTORY_TYPE;
+    strcpy(root_direct->name,"root");
+    
     printf("inode %d\n",inode_data->size);
-    current_direct = (struct dirent*)malloc(sizeof(struct dirent*));
+    current_direct = malloc(sizeof(struct dirent));
     current_direct->inode = 0;
     current_direct->type = DIRECTORY_TYPE;
     strcpy(current_direct->name,"root");
@@ -397,6 +440,7 @@ int disk_open(char *diskname){
 
 int disk_close(){
     free(current_direct);
+    free(root_direct);
     fseek(diskimage,0,SEEK_SET);
     if(fwrite(sb,512,1,diskimage)<1){
         free(sb);
@@ -443,20 +487,18 @@ File* f_open(char* filename, char* mode){
         target = f_opendir(directname);
     }
     if(target == NULL){return NULL;}
-
     char* name = NULL;
-    strcpy(name, path->tokens[path->length-1]);
+    name = path->tokens[path->length-1];
     struct inode* temp_inode = getInode(target->inode);
     struct dirent* target_file = findDirent(*temp_inode,name,FILE_TYPE);
     int permission = NONE;
     if(target_file!=NULL){permission = getInode(target_file->inode)->permissions;}
-    free(path);
-
     // mode
     int int_mode = -1;
     if(strcmp("r",mode)==0){
         if(permission!=READ_ONLY&&permission!=BOTH_ALLOW){
             printf("Wrong permission\n");
+            freeTokenizer(path);
             return NULL;
         }
         int_mode = READ;
@@ -464,6 +506,7 @@ File* f_open(char* filename, char* mode){
     else if(strcmp("r+",mode)==0){
         if(permission!=BOTH_ALLOW){
             printf("Wrong permission\n");
+            freeTokenizer(path);
             return NULL;
         }
         int_mode = READ_WRITE;
@@ -474,6 +517,7 @@ File* f_open(char* filename, char* mode){
     else if(strcmp("a+",mode)==0){int_mode = APPEND_READ;}
     else{
         printf("Invalid request\n");
+        freeTokenizer(path);
         return NULL;
     }
     File* file = (File*)malloc(sizeof(File));
@@ -484,6 +528,7 @@ File* f_open(char* filename, char* mode){
         if(target_file==NULL){
             printf("File does not exist\n");
             free(file);
+            freeTokenizer(path);
             return NULL;
         }else{
             file->inode = target_file->inode;
@@ -507,16 +552,18 @@ File* f_open(char* filename, char* mode){
                 int size = getInode(file->inode)->size;
                 file->block_index = size / block_size;
                 file->position = size % block_size;
-            }
+            }else{
                 free(file);
                 printf("Wrong Permission\n");
+                freeTokenizer(path);
                 return NULL;
+            }
         }
     }
 
     file->mode = int_mode;
     strcpy(file->name,filename);
-
+    freeTokenizer(path);
     return file;
 }
 
@@ -552,7 +599,7 @@ struct dirent* f_opendir(char* directory) {
         // Move to the next directory in the path
         cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
     }
-
+    freeTokenizer(path);
     cur->offset = 0;
     //create a file type and add it to the open file table
     File new_dir;
@@ -566,8 +613,16 @@ struct dirent* f_opendir(char* directory) {
 }
 
 int f_close(File* file){
+    if(file==NULL){return 0;}
     free(file);
-    return 0;
+    return 1;
+}
+
+int f_rewind(File* file){
+    if(file==NULL){return 0;}
+    file->position = 0;
+    file->block_index = 0;
+    return 1;
 }
 
 struct dirent* f_readdir(struct dirent* directory){
@@ -620,6 +675,8 @@ int f_rmdir(char* path_name) {
         }
     }
 
+    freeTokenizer(path);
+
     // At this point, 'cur' should be the directory to remove
     // check if this directory is empty
     struct inode* curinode = getInode(cur->inode);
@@ -650,8 +707,9 @@ int f_write(File* file, void* buffer, int num){
 
 	// check the mode of FILE, if it is not allowed, return -1
     if(file->mode == READ){return -1;}
-    if(num>sizeof(buffer)){num = sizeof(buffer);}
+    char* char_buffer = (char*) buffer;
 
+    if(num>strlen(char_buffer)+1){num = strlen(char_buffer)+1;}
     struct inode* inode = getInode(file->inode);
 
     int written_num = 0;
@@ -669,7 +727,7 @@ int f_write(File* file, void* buffer, int num){
             // update position
             avail_bytes=num-written_num;
             file->position+=avail_bytes;
-            memcpy(data,(char*)buffer+written_num,avail_bytes);
+            memcpy(data,char_buffer+written_num,avail_bytes);
             // update file size
             inode->size += avail_bytes;
             written_num += avail_bytes;
@@ -690,14 +748,12 @@ int f_write(File* file, void* buffer, int num){
 
 int f_read(File *file, void* buffer, int num){
 	
-     if(file==NULL){return -1;}
+    if(file==NULL){return -1;}
 
 	// check the mode of FILE, if it is not allowed, return -1
     if(file->mode == APPEND || file->mode == WRITE){return -1;}
     struct inode* inode = getInode(file->inode);
-
 	int read_num = 0;
-
     // read content
     while(read_num<num){
         int need_bytes = block_size - file->position;
@@ -705,12 +761,13 @@ int f_read(File *file, void* buffer, int num){
         char* data = appendPosition(inode,file->block_index,file->position);
 	    // if there is no more data to read
 	    if(data==NULL){return read_num;}
-        
+        printf("need byts:%d\n",need_bytes);
         // no enough bytes to read; the last time to read
         if(inode->size-(file->block_index*block_size+file->position)<need_bytes){
             need_bytes = inode->size-(file->block_index*block_size+file->position);
+            printf("need byts:%d\n",need_bytes);
             file->position += need_bytes;
-            memcpy(data,(char*)buffer+read_num,need_bytes);
+            memcpy((char*)buffer+read_num,data,need_bytes);
             read_num += need_bytes;
             return read_num;
         }else{
@@ -719,19 +776,19 @@ int f_read(File *file, void* buffer, int num){
             file->block_index++;
         }
     
-        memcpy(data,(char*)buffer+read_num,need_bytes);
+        memcpy((char*)buffer+read_num,data,need_bytes);
         read_num += need_bytes;
     }
     return read_num;
 }
 
 int f_stat(char* filename){
-    if (path_name == NULL) {
+    if (filename == NULL) {
         printf("Invalid path name\n");
         return -1;
     }
 
-    struct Tokenizer* path = tokenize(path_name);
+    struct Tokenizer* path = tokenize(filename);
     if (path == NULL) {
         return -1;  // Failed to tokenize the path
     }
@@ -766,6 +823,7 @@ int f_stat(char* filename){
             cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
         }
     }
-
+    freeTokenizer(path);
+    return 1;
 }
 
