@@ -172,7 +172,6 @@ int main(int argc, char* argv[]) {
             exit(EXIT_FAILURE);
         }
     }
-
     create_disk_image(file_name, size_mb);
     //print_disk_contents(file_name);
     return 0;

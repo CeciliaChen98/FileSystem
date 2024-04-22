@@ -88,10 +88,10 @@ struct dirent* f_readdir(struct dirent* directory);
 
 int f_closedir(struct dirent* directory);
 
-int  f_mkdir(char* path_name);
+struct dirent* f_mkdir(char* path_name);
 
 int f_rmdir(char* path_name);
 
-void f_test(int index,int block);
+void f_test(int index,int block, int num);
 
 #endif

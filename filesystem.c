@@ -10,6 +10,9 @@
 #define DIRECTORY_TYPE 1
 #define MAX_INPUT_SIZE 64
 
+int inode_num;
+int data_num;
+
 enum Mode {
     None = -1,
     READ,
@@ -35,17 +38,17 @@ static char* getData(int index){
     return (char*)block_data + block_size * index; 
 }
 
-void f_test(int index,int block){
+void f_test(int index,int block,int num){
     struct inode* inode = getInode(index);
     printf("Ionde[%d]\n",index);
     printf("type: %d\n",inode->type);
     printf("size: %d\n",inode->size);
-    printf("block 1: %d\n",inode->dblocks[0]);
+    printf("block %d: %d\n",block,inode->dblocks[block]);
     printf("%d\n",inode->size);
     //char* data = (char*) malloc(inode->size);
     //printf("%ld\n",sizeof(data));
-    char* data = getData(inode->dblocks[0]);
-    printf("%s\n",((struct dirent*)data+block)->name);
+    char* data = getData(inode->dblocks[block]);
+    printf("%s\n",((struct dirent*)data+num)->name);
     //free(data);
 }
 
@@ -269,7 +272,7 @@ static struct dirent* createFile(struct dirent* cur_dirent, char* name){
     file_inode -> type = FILE_TYPE;
     file_inode -> permissions = BOTH_ALLOW;
     file_inode -> parent = cur_dirent->inode;
-    file_inode -> nlink = 1;
+    file_inode -> nlink = 0;
     file_inode -> size = 0;
     file_inode -> mtime = time(NULL);    
 
@@ -333,12 +336,14 @@ static struct dirent* findDirent(struct inode inode, char* target, int type){
 }
 
 static struct Tokenizer* tokenize(char* arg){
+    if(arg==NULL){
+        return NULL;
+    }
     // Initialize a tokenizer
     struct Tokenizer* path = malloc(sizeof(struct Tokenizer));
     if (path == NULL) {
         return NULL; // Failed to allocate memory for Tokenizer
     }
-
     int i = 0;
     if(arg[i]=='/' || arg[i]=='~'){
         path->flag = PATH_ROOT;
@@ -394,7 +399,7 @@ int disk_open(char *diskname){
     }
     
     block_size = sb->size;
-    int inode_num = block_size*(sb->data_offset-sb->inode_offset);
+    inode_num = block_size*(sb->data_offset-sb->inode_offset);
     inode_data = (struct inode*)malloc(inode_num);
     
     if(fread(inode_data,inode_num,1,diskimage)<1){
@@ -428,9 +433,9 @@ int disk_open(char *diskname){
     fseek(diskimage,512+inode_num,SEEK_SET);
     printf("num of bytes %d\n",num_bytes); //好像少了128bytes？
 
-    int data_bytes = num_bytes-512-inode_num;
-    block_data = (char*)malloc(data_bytes);
-    if(fread(block_data,data_bytes,1,diskimage)==0){
+    data_num = num_bytes-512-inode_num;
+    block_data = (char*)malloc(data_num);
+    if(fread(block_data,data_num,1,diskimage)==0){
         printf("Can't read data block region\n");
         return 0;
     }
@@ -449,14 +454,14 @@ int disk_close(){
         fclose(diskimage);
         return 0;
     }
-    if(fwrite(inode_data,sizeof(inode_data),1,diskimage)<1){
+    if(fwrite(inode_data,inode_num,1,diskimage)<1){
         free(sb);
         free(inode_data);
         free(block_data);
         fclose(diskimage);
         return 0;
     }
-    if(fwrite(block_data,sizeof(block_data),1,diskimage)<1){
+    if(fwrite(block_data,data_num,1,diskimage)<1){
         free(sb);
         free(inode_data);
         free(block_data);
@@ -471,6 +476,10 @@ int disk_close(){
 } 
 
 File* f_open(char* filename, char* mode){
+
+    if(filename[strlen(filename-1)]=='/'){
+        return NULL;
+    }
 	// do the path standardizing and permission check
     struct Tokenizer* path = tokenize(filename);
     // if the path is invalid (exceeds MAX_INPUT_SIZE)
@@ -486,9 +495,10 @@ File* f_open(char* filename, char* mode){
         }
         target = f_opendir(directname);
     }
-    if(target == NULL){return NULL;}
+    if(target == NULL){freeTokenizer(path);return NULL;}
     char* name = NULL;
     name = path->tokens[path->length-1];
+    if(strcmp(name,"..")==0||strcmp(name,".")==0){freeTokenizer(path);return NULL;}
     struct inode* temp_inode = getInode(target->inode);
     struct dirent* target_file = findDirent(*temp_inode,name,FILE_TYPE);
     int permission = NONE;
@@ -574,7 +584,6 @@ struct dirent* f_opendir(char* directory) {
     if (path == NULL) {
         return NULL;
     }
-
     struct dirent* cur = NULL;
 
     // Decide starting directory based on path flag
@@ -808,5 +817,69 @@ int f_stat(char* filename){
     f_close(cur);
 
     return 0;
+}
+
+static struct dirent* createDirectory(struct dirent* cur_dirent, char* name){
+
+    // we don't assign any data block for a new file
+    // rearrange the free inode 
+    if(sb->free_inode==-1){return NULL;}
+    int free_i = getInode(sb->free_inode)->parent;
+    struct inode* file_inode;
+    if(free_i!=-1){
+        int next_i = getInode(free_i)->parent;
+        file_inode = getInode(free_i);
+        getInode(sb->free_inode)->parent = next_i;
+    }else{
+        free_i = sb->free_inode;
+        file_inode = getInode(free_i);
+        sb->free_inode = -1;
+    }
+    // modify the inode to store all the information
+    file_inode -> type = DIRECTORY_TYPE;
+    file_inode -> permissions = BOTH_ALLOW;
+    file_inode -> parent = cur_dirent->inode;
+    file_inode -> nlink = 0;
+    file_inode -> size = 0;
+    file_inode -> mtime = time(NULL);    
+
+    struct inode* inode = getInode(cur_dirent->inode);;
+    struct dirent* direct = (struct dirent*)appendPosition(inode,inode->size/block_size,inode->size%block_size);
+    inode->size += sizeof(struct dirent);
+    if(direct==NULL){return NULL;}
+    direct->inode = free_i; 
+    direct->type = DIRECTORY_TYPE;
+    direct->offset = -1;
+    strcpy(direct->name,name);
+
+    return direct;
+
+}
+
+struct dirent* f_mkdir(char* path_name){
+    struct Tokenizer* path = tokenize(path_name);
+    if(path==NULL){
+        return NULL;
+    }
+    // check if there is a directory needed to open
+    struct dirent* target = current_direct;
+    if(path->length>1){
+        char * directname = NULL;
+        for(int i=0;i<path->length-1;i++){
+            strcat(directname,path->tokens[i]);
+        }
+        target = f_opendir(directname);
+    }
+    if(target == NULL){freeTokenizer(path);return NULL;}
+    char* name = NULL;
+    name = path->tokens[path->length-1];
+    struct inode* temp_inode = getInode(target->inode);
+    if(findDirent(*temp_inode,name,DIRECTORY_TYPE)!=NULL){
+        printf("cannot create directory '%s': File exists\n",name);
+        freeTokenizer(path);return NULL;
+    }
+    struct dirent* new_direct = createDirectory(target,name);
+    freeTokenizer(path);
+    return new_direct;
 }
 

@@ -40,7 +40,7 @@ int main(int argc, char* argv[]){
     else{
         f_write(test,content,38);
         f_rewind(test);
-        f_test(3,0);
+        //f_test(3,0);
         printf("print now:\n");
         char new_content[76];
         f_read(test,new_content,76);
@@ -60,13 +60,16 @@ int main(int argc, char* argv[]){
     printf("the current directory's inode is %d\n", curdir->inode);
     printf("the root directory's inode is %d\n", curdir->inode);
     f_closedir(curdir);
-    
+
+    printf("Testing mkdir\n");
+    f_mkdir("~tests");
+    //f_test(0,1,0);
+
     //test for f_stat, test both file and directory
     if (f_stat("test.txt") == -1) {
         printf("Error when checking status of file test.txt\n");
     }
-
-
+    
     if (f_stat("./") == -1) {
         printf("Error when checking status of the root directory.\n");
     }
