@@ -53,12 +53,14 @@ int main(int argc, char* argv[]){
     }
 
     //test for f_opendir
-    if (f_opendir("./") == NULL) {
+    struct dirent* curdir = f_opendir("./");
+    if (curdir == NULL) {
         printf("Error when opening the root directory\n");
     }
-    printf("the current directory's inode is %d\n", f_opendir("./")->inode);
-    printf("the root directory's inode is %d\n", f_opendir("/")->inode);
-
+    printf("the current directory's inode is %d\n", curdir->inode);
+    printf("the root directory's inode is %d\n", curdir->inode);
+    f_closedir(curdir);
+    
     //test for f_stat, test both file and directory
     if (f_stat("test.txt") == -1) {
         printf("Error when checking status of file test.txt\n");

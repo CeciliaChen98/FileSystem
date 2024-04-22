@@ -785,13 +785,17 @@ int f_stat(char* filename){
     File* cur = f_open(filename, "r");
     // if cur is not a file (a directory or not exists)
     if (cur == NULL) {
-        printf("file not found. Now check for directory.\n");
         struct dirent* curdir = f_opendir(filename);
+        if (curdir == NULL) {
+            printf("file/directory not found.\n");
+            return -1;
+        }
         printf("File size: %d\n", getInode(curdir->inode)->size);
         printf("File type: directory\n");
         printf("Inode index: %d\n", curdir->inode);
         printf("Number of hard link: %d\n", getInode(curdir->inode)->nlink);
         printf("Permission: %d\n", getInode(curdir->inode)->permissions);
+        f_closedir(curdir);
         return 0;
     }
     // if cur is a directory
@@ -801,9 +805,8 @@ int f_stat(char* filename){
     printf("Number of hard link: %d\n", getInode(cur->inode)->nlink);
     printf("Permission: %d\n", getInode(cur->inode)->permissions);
 
+    f_close(cur);
+
     return 0;
-
-
-
 }
 
