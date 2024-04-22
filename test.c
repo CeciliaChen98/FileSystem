@@ -41,10 +41,32 @@ int main(int argc, char* argv[]){
         f_write(test,content,38);
         f_rewind(test);
         f_test(3,0);
+        printf("print now:\n");
         char new_content[76];
         f_read(test,new_content,76);
         printf("%s\n",new_content);
+
+        // read the second time to get what we have written in the file newly
+        f_read(test,new_content,76);
+        printf("%s\n",new_content);
         f_close(test);
+    }
+
+    //test for f_opendir
+    if (f_opendir("./") == NULL) {
+        printf("Error when opening the root directory\n");
+    }
+    printf("the current directory's inode is %d\n", f_opendir("./")->inode);
+    printf("the root directory's inode is %d\n", f_opendir("/")->inode);
+
+    //test for f_stat, test both file and directory
+    if (f_stat("test.txt") == -1) {
+        printf("Error when checking status of file test.txt\n");
+    }
+
+
+    if (f_stat("./") == -1) {
+        printf("Error when checking status of the root directory.\n");
     }
 
     if(disk_close()!=1){

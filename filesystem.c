@@ -601,12 +601,6 @@ struct dirent* f_opendir(char* directory) {
     }
     freeTokenizer(path);
     cur->offset = 0;
-    //create a file type and add it to the open file table
-    File new_dir;
-    new_dir.inode = cur->inode;
-    strcpy(new_dir.name, cur->name); 
-    new_dir.block_index = -1;
-    new_dir.position = -1;
 
     // Return the final directory entry found, or NULL if not found
     return cur;
@@ -788,42 +782,28 @@ int f_stat(char* filename){
         return -1;
     }
 
-    struct Tokenizer* path = tokenize(filename);
-    if (path == NULL) {
-        return -1;  // Failed to tokenize the path
+    File* cur = f_open(filename, "r");
+    // if cur is not a file (a directory or not exists)
+    if (cur == NULL) {
+        printf("file not found. Now check for directory.\n");
+        struct dirent* curdir = f_opendir(filename);
+        printf("File size: %d\n", getInode(curdir->inode)->size);
+        printf("File type: directory\n");
+        printf("Inode index: %d\n", curdir->inode);
+        printf("Number of hard link: %d\n", getInode(curdir->inode)->nlink);
+        printf("Permission: %d\n", getInode(curdir->inode)->permissions);
+        return 0;
     }
+    // if cur is a directory
+    printf("File size: %d\n", getInode(cur->inode)->size);
+    printf("File type: file\n");
+    printf("Inode index: %d\n", cur->inode);
+    printf("Number of hard link: %d\n", getInode(cur->inode)->nlink);
+    printf("Permission: %d\n", getInode(cur->inode)->permissions);
 
-    struct dirent* cur = (path->flag == PATH_CURRENT) ? current_direct : root_direct;
+    return 0;
 
-    for (int count = 0; count < path->length; count++) {
-        if (cur == NULL) {
-            printf("Directory/file not found\n");
-            return -1;
-        }
 
-        if (count == path->length - 1) {  // Last token, should be the directory/file to check state
-            if (strcmp(cur->name, path->tokens[count]) != 0) {
-                cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
-                if (cur == NULL) {
-                    cur = findDirent(inode_data[cur->inode], path->tokens[count], FILE_TYPE);
-                }
-                if (cur == NULL) {
-                    printf("Directory/file not found\n");
-                    return -1;
-                }
-                printf("File size: %d\n", getInode(cur->inode)->size);
-                printf("File type: %d\n", cur->type);
-                printf("Inode index: %d\n", cur->inode);
-                printf("Number of hard link: %d\n", getInode(cur->inode)->nlink);
-                printf("Permission: %d\n", getInode(cur->inode)->permissions);
 
-                return 0;
-            }
-        } else {
-            cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
-        }
-    }
-    freeTokenizer(path);
-    return 1;
 }
 
