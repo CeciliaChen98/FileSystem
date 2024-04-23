@@ -38,26 +38,8 @@ static char* getData(int index){
     return (char*)block_data + block_size * index; 
 }
 
-
-void f_test(int index,int block,int num){
-    struct inode* inode = getInode(index);
-    printf("Ionde[%d]\n",index);
-    if(index !=0){
-        printf("type: %d\n",inode->type);
-        printf("size: %d\n",inode->size);
-        printf("%d\n",inode->size);
-    }
-    printf("block %d: %d\n",block,inode->dblocks[block]);
-    //char* data = (char*) malloc(inode->size);
-    //printf("%ld\n",sizeof(data));
-    char* data = getData(inode->dblocks[block]);
-    printf("dirent name: %s\n",((struct dirent*)data+num)->name);
-    printf("dirent type (file 0, direct 1): %d\n",((struct dirent*)data+num)->type);
-    printf("dirent inode: %d\n",((struct dirent*)data+num)->inode);
-    //free(data);
-}
-
 void freeBlock(int blockindex) {
+    memset(getData(blockindex),0,block_size);
     // Retrieve the first block in the free list.
     int first_free_block = sb->free_block;
     if (first_free_block == -1) {
@@ -216,58 +198,149 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     }
     return NULL;  // If no dirent was found at the specified index
 }
+static int assignBlock(){
+
+    if(sb->free_block==-1){return -1;}
+    int head_free = *(int*)getData(sb->free_block);
+    int data_file;
+    if(head_free==-1){
+        data_file = sb->free_block;
+        sb->free_block = -1;
+    }else{
+        data_file = head_free;
+        int next_free = *(int*)getData(head_free);
+        int* ptr = (int*)getData(sb->free_block);
+        *ptr = next_free;
+    }
+    // clean the data inside the new data block
+    char* new_data_block = getData(data_file);
+    memset(new_data_block,0,block_size);
+
+    return data_file;
+}
 
 static void* appendPosition(struct inode* inode,int block_index, int position, int request){
     // request: write = 1, read = 0
     // calculate the offset
-    int last_block = block_index;
+    int last_block = inode->size/block_size;
+    int num_index = block_size/sizeof(int);
     int calculated_size = block_index*block_size+position;
-    // if need to assign a new data block
-    if(calculated_size == inode->size && position == 0){
-        // rearrange the free data block 
-        // if no more free data block
-        if(sb->free_block==-1){return NULL;}
-        int head_free = *(int*)getData(sb->free_block);
-        int data_file;
-        if(head_free==-1){
-            data_file = sb->free_block;
-            sb->free_block = -1;
+    // if it exceeds the size limit
+    if(block_index>(N_DBLOCKS+N_IBLOCKS*num_index+num_index*num_index)){return NULL;}
+    // if it reach an unassigned position
+    if(calculated_size>=inode->size){ 
+        if(request==0){
+            return NULL; 
         }else{
-            data_file = head_free;
-            int next_free = *(int*)getData(head_free);
-            int* ptr = (int*)getData(sb->free_block);
-            *ptr = next_free;
-        }
-    
-        // clean the data inside the new data block
-        char* new_data_block = getData(data_file);
-        memset(new_data_block,0,block_size);
-
-        if(last_block<N_DBLOCKS){
-            inode->dblocks[last_block] = data_file;
-            return getData(data_file);
-        }
-        last_block = last_block-N_DBLOCKS;
-        for(int i=0;i<N_IBLOCKS;i++){
-            if(last_block<block_size/sizeof(int)){
-                int* ptr = (int*)getData(inode->iblocks[i])+last_block;
-                *ptr = data_file;
-                return getData(data_file);
+            if(block_index==last_block&&position!=0){
+                if(block_index<N_DBLOCKS){
+                    return getData(inode->dblocks[block_index])+position;
+                }
+                block_index = block_index - N_DBLOCKS;
+                if(block_index<N_IBLOCKS*num_index){
+                    int a = block_index/num_index;
+                    int b = block_index%num_index;
+                    return getData(*((int*)getData(inode->iblocks[a])+b))+position;
+                }
+                block_index = block_index - N_IBLOCKS*num_index;
+                if(block_index<num_index*num_index){
+                    int a = block_index/num_index;
+                    int b = block_index%num_index;
+                    int index = *((int*)getData(inode->i2block)+a);
+                    return getData(*((int*)getData(index)+b))+position;
+                }else{
+                    return NULL;
+                }
             }else{
-                last_block = last_block - block_size/sizeof(int);
+                if(block_index==last_block){last_block--;}
+                // assign block in betweem last_block and block_index
+                if(block_index < N_DBLOCKS){
+                    int index = 0;
+                    for(int i=last_block+1;i<=block_index;i++){
+                        index = assignBlock();
+                        inode->dblocks[i] = index;
+                    }
+                    return getData(index)+ position;
+                }else{
+                    for(int i=last_block+1;i<N_DBLOCKS;i++){
+                        last_block++;
+                        inode->dblocks[i] = assignBlock();
+                    }
+                }
+                block_index = block_index - N_DBLOCKS;
+                last_block = last_block - N_DBLOCKS;
+            
+                int c = last_block/num_index;
+                int d = last_block%num_index;
+
+                if(block_index<N_IBLOCKS*num_index){
+                    int a = block_index/num_index;
+                    int b = block_index%num_index;
+                    int index;
+                    for(int i=c;i<=a;i++){
+                       int start = 0;
+                       int end = num_index-1;
+                       if(i==c){start=d+1;}
+                       if(i==a){end=b;}
+                       for(int j=start;j<=end;j++){
+                            int* ptr = (int*)getData(inode->iblocks[i])+j;
+                            index = assignBlock();
+                            *ptr = index;
+                        }    
+                    }
+                    return getData(index)+ position;
+                }else{
+                    for(int i=c;i<num_index;i++){
+                        int start = 0;
+                        if(i==c){start=d+1;}
+                        for(int j=start;j<num_index;j++){
+                            int* ptr = (int*)getData(inode->iblocks[i])+j;
+                            *ptr = assignBlock();
+                            last_block++;
+                        }
+                    }
+                }
+                block_index = block_index - N_IBLOCKS*num_index;
+                last_block = last_block - N_IBLOCKS*num_index;
+                c = last_block/num_index;
+                d = last_block%num_index;
+                if(block_index<num_index*num_index){
+                    int a = block_index/num_index;
+                    int b = block_index%num_index;
+                    int index;
+                    for(int i=c;i<=a;i++){
+                       int start = 0;
+                       int end = num_index-1;
+                       if(i==c){start=d+1;}
+                       if(i==a){end=b;}
+                       for(int j=start;j<=end;j++){
+                            int* ptr = (int*)getData(*((int*)getData(inode->i2block)+i))+j;
+                            index = assignBlock();
+                            *ptr = index;
+                        }    
+                    }
+                    return getData(index)+ position;
+                }
             }
         }
     }else{
-        if(last_block<N_DBLOCKS){
-            return getData(inode->dblocks[last_block])+position;
+        if(block_index<N_DBLOCKS){
+            return getData(inode->dblocks[block_index])+position;
         }
-        last_block = last_block-N_DBLOCKS;
-        for(int i=0;i<N_IBLOCKS;i++){
-            if(last_block<block_size/sizeof(int)){
-                return getData(*(int*)getData(inode->iblocks[i])+last_block)+position;
-            }else{
-                last_block = last_block - block_size/sizeof(int);
-            }
+        block_index = block_index - N_DBLOCKS;
+        if(block_index<N_IBLOCKS*num_index){
+            int a = block_index/num_index;
+            int b = block_index%num_index;
+            return getData(*((int*)getData(inode->iblocks[a])+b))+position;
+        }
+        block_index = block_index - N_IBLOCKS*num_index;
+        if(block_index<num_index*num_index){
+            int a = block_index/num_index;
+            int b = block_index%num_index;
+            int index = *((int*)getData(inode->i2block)+a);
+            return getData(*((int*)getData(index)+b))+position;
+        }else{
+            return NULL;
         }
     }
     return NULL;
@@ -615,7 +688,6 @@ struct dirent* f_opendir(char* directory) {
         // Assuming the only other option is to start from root
         cur = root_direct;
     }
-
     // Iterate over each token based on the number of tokens
     for (int count = 0; count < path->length; count++) {
         if (cur == NULL) {
@@ -631,8 +703,11 @@ struct dirent* f_opendir(char* directory) {
         cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
     }
     freeTokenizer(path);
+    if(cur == NULL){
+        printf("Directory not found\n");
+        return NULL;
+    }
     cur->offset = 0;
-
     // Return the final directory entry found, or NULL if not found
     return cur;
 }
@@ -707,19 +782,50 @@ int f_rmdir(char* path_name) {
     // At this point, 'cur' should be the directory to remove
     // check if this directory is empty
     struct inode* curinode = getInode(cur->inode);
+    struct inode* parent = getInode(curinode->parent);
+
     if (curinode->size != 2*sizeof(struct dirent)) {
         printf("Can't remove a directory that is not empty.\n");
         return -1;
     }
 
     cleaninode(curinode,1);  // Free the content of inode
-
-    // set the dirent all to 0
-    cur->inode = 0;
-    cur->name[0] = '\0';  // Set the name to an empty string
-    cur->offset = 0;
-    cur->type = 0;
     
+    // move the last dirent to the current position
+    int refer_index = parent->size - sizeof(struct dirent);
+    int temp_index = refer_index/block_size;
+    struct dirent* last = (struct dirent*)appendPosition(parent,temp_index,refer_index%block_size,0);
+    // set the dirent all to 0
+    cur->inode = last->inode;
+    strcpy(cur->name,last->name);  
+    cur->offset = last->offset;
+    cur->type = last->type;
+    
+    int tst = ((char*)last-block_data)/block_size;
+    if(refer_index%block_size==0){
+        freeBlock(tst);
+        if(temp_index<N_DBLOCKS){
+            parent->dblocks[temp_index]=0;
+        }else{
+            temp_index = temp_index - N_DBLOCKS;
+            int num_index = block_size/sizeof(int);
+            if(temp_index<N_IBLOCKS*num_index){
+                int a = temp_index/num_index;
+                int b = temp_index%num_index;
+                int* ptr = (int*)getData(parent->iblocks[a])+b;
+                *ptr = 0;
+            }else{  
+                temp_index = temp_index - N_IBLOCKS*num_index;
+                int a = temp_index/num_index;
+                int b = temp_index%num_index;
+                int* ptr = (int*)getData(*((int*)getData(parent->i2block)+a)+b);
+                *ptr = 0;
+            }
+        }
+    }else{
+        memset(last,0,sizeof(struct dirent));
+    }
+    parent->size -= sizeof(struct dirent);
     return 0;
 }
 
@@ -749,6 +855,7 @@ int f_write(File* file, void* buffer, int num){
             // update position
             avail_bytes=num-written_num;
             file->position+=avail_bytes;
+            
             memcpy(data,char_buffer+written_num,avail_bytes);
             // update file size
             inode->size += avail_bytes;
@@ -936,3 +1043,72 @@ int f_seek(File* file, int num, int mode){
     return 1;
 }
 
+int f_delete(char* filename){
+    if(filename[strlen(filename-1)]=='/'){
+        return -1;
+    }
+	// do the path standardizing and permission check
+    struct Tokenizer* path = tokenize(filename);
+    // if the path is invalid (exceeds MAX_INPUT_SIZE)
+    if(path==NULL){
+        return -1;
+    }
+    // check if there is a directory needed to open
+    struct dirent* target = current_direct;
+    if(path->length>1){
+        char * directname = NULL;
+        for(int i=0;i<path->length-1;i++){
+            strcat(directname,path->tokens[i]);
+        }
+        target = f_opendir(directname);
+    }
+    if(target == NULL){freeTokenizer(path);return -1;}
+    char* name = NULL;
+    name = path->tokens[path->length-1];
+    if(strcmp(name,"..")==0||strcmp(name,".")==0){freeTokenizer(path);return -1;}
+    struct inode* temp_inode = getInode(target->inode);
+    struct dirent* target_file = findDirent(*temp_inode,name,FILE_TYPE);
+    
+    if(target_file ==NULL){return 0;}
+    struct inode* target_inode = getInode(target_file->inode);
+    freeTokenizer(path);
+    
+    cleaninode(target_inode,1);
+    
+    // move the last dirent to the current position
+    int refer_index = temp_inode->size - sizeof(struct dirent);
+    int temp_index = refer_index/block_size;
+    struct dirent* last = (struct dirent*)appendPosition(temp_inode,temp_index,refer_index%block_size,0);
+    // set the dirent all to 0
+    target_file->inode = last->inode;
+    strcpy(target_file->name,last->name);  
+    target_file->offset = last->offset;
+    target_file->type = last->type;
+    
+    int tst = ((char*)last-block_data)/block_size;
+    if(refer_index%block_size==0){
+        freeBlock(tst);
+        if(temp_index<N_DBLOCKS){
+            temp_inode->dblocks[temp_index]=0;
+        }else{
+            temp_index = temp_index - N_DBLOCKS;
+            int num_index = block_size/sizeof(int);
+            if(temp_index<N_IBLOCKS*num_index){
+                int a = temp_index/num_index;
+                int b = temp_index%num_index;
+                int* ptr = (int*)getData(temp_inode->iblocks[a])+b;
+                *ptr = 0;
+            }else{  
+                temp_index = temp_index - N_IBLOCKS*num_index;
+                int a = temp_index/num_index;
+                int b = temp_index%num_index;
+                int* ptr = (int*)getData(*((int*)getData(temp_inode->i2block)+a)+b);
+                *ptr = 0;
+            }
+        }
+    }else{
+        memset(last,0,sizeof(struct dirent));
+    }
+    temp_inode->size -= sizeof(struct dirent);
+    return 1;
+}

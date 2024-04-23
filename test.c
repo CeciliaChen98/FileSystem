@@ -62,7 +62,8 @@ int main(int argc, char* argv[]){
         printf("Error1\n");
         return -1;
     }
-    //f_test(1);
+    //print_disk_contents();
+
     printf("Test f_open\n");
     File* file = f_open("file.txt","r");
     if(file==NULL){printf("Can't open file\n");}
@@ -120,15 +121,20 @@ int main(int argc, char* argv[]){
     //f_test(0,1,0);
     //f_test(0,0,3);
 
-    /*printf("\nTesting rmdir\n");
+    printf("\nTesting rmdir\n");
     if (f_rmdir("~tests") == -1) {
         printf("Error when removing tests.\n");
-    };*/
+    };
 
     //test for f_stat, test both file and directory
     printf("\nTesting for f_stat.\n");
     if (f_stat("test.txt") == -1) {
         printf("Error when checking status of file test.txt\n");
+    }
+
+    printf("\nTesting f_delete\n");
+    if(f_delete("test.txt")==-1){
+        printf("Error when removing test.txt.\n");
     }
     
     if (f_stat("./") == -1) {
@@ -139,6 +145,5 @@ int main(int argc, char* argv[]){
         printf("Error2\n");
         return -1;
     }
-
-     print_disk_contents();
+    print_disk_contents();
 }
