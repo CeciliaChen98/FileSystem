@@ -290,7 +290,7 @@ static struct dirent* createFile(struct dirent* cur_dirent, char* name){
     file_inode -> mtime = time(NULL);    
 
     struct inode* inode = getInode(cur_dirent->inode);;
-    struct dirent* direct = (struct dirent*)appendPosition(inode,inode->size/block_size,inode->size%block_size);
+    struct dirent* direct = (struct dirent*)appendPosition(inode,inode->size/block_size,inode->size%block_size,1);
     inode->size += sizeof(struct dirent);
     if(direct==NULL){return NULL;}
     direct->inode = free_i; 
@@ -732,7 +732,7 @@ int f_write(File* file, void* buffer, int num){
     while(written_num<num){
         int avail_bytes = block_size - file->position;
         // get to the current position of the file according to block_index and position
-        char* data = appendPosition(inode,file->block_index,file->position);
+        char* data = appendPosition(inode,file->block_index,file->position,1);
 	    // if there is no more space
 	    if(data==NULL){return written_num;}
 
@@ -772,7 +772,7 @@ int f_read(File *file, void* buffer, int num){
     while(read_num<num){
         int need_bytes = block_size - file->position;
         // get to the current position of the file according to block_index and position
-        char* data = appendPosition(inode,file->block_index,file->position);
+        char* data = appendPosition(inode,file->block_index,file->position,0);
 	    // if there is no more data to read
 	    if(data==NULL){return read_num;}
         
@@ -855,7 +855,7 @@ static struct dirent* createDirectory(struct dirent* cur_dirent, char* name){
     file_inode -> mtime = time(NULL);    
 
     struct inode* inode = getInode(cur_dirent->inode);;
-    struct dirent* direct = (struct dirent*)appendPosition(inode,inode->size/block_size,inode->size%block_size);
+    struct dirent* direct = (struct dirent*)appendPosition(inode,inode->size/block_size,inode->size%block_size,1);
     inode->size += sizeof(struct dirent);
     if(direct==NULL){return NULL;}
     direct->inode = free_i; 
@@ -898,7 +898,7 @@ int f_seek(File* file, int num, int mode){
     int index = 0;
     //
     if(mode==SEEK_SET){
-
+        index = num;
     }else if(mode==SEEK_CUR){
         index = block_size * file->block_index + file->position+ num;
     }else if(mode==SEEK_END){
@@ -907,12 +907,10 @@ int f_seek(File* file, int num, int mode){
         return 0;
     }
     if(index<0){return -1;}
-    else if(index>getInode(file->inode)->size){
-
-    }else{
+    else{
         file->block_index = index/block_size;
+        file->position = index%block_size;
     }
-
     return 1;
 }
 
