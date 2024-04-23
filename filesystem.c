@@ -66,6 +66,7 @@ void freeBlock(int blockindex) {
         sb->free_block = blockindex;
         // Assuming blocknum needs to point to 0 to indicate no next block
         int* block_data = (int*)getData(blockindex);
+        
         *block_data = -1; // Set the next pointer to 0
         return;
     }
@@ -237,6 +238,7 @@ static void* appendPosition(struct inode* inode,int block_index, int position, i
             int* ptr = (int*)getData(sb->free_block);
             *ptr = next_free;
         }
+    
         // clean the data inside the new data block
         char* new_data_block = getData(data_file);
         memset(new_data_block,0,block_size);
@@ -705,7 +707,7 @@ int f_rmdir(char* path_name) {
     // At this point, 'cur' should be the directory to remove
     // check if this directory is empty
     struct inode* curinode = getInode(cur->inode);
-    if (curinode->size != 0) {
+    if (curinode->size != 2*sizeof(struct dirent)) {
         printf("Can't remove a directory that is not empty.\n");
         return -1;
     }
@@ -852,6 +854,7 @@ static struct dirent* createDirectory(struct dirent* cur_dirent, char* name){
         file_inode = getInode(free_i);
         sb->free_inode = -1;
     }
+
     // modify the inode to store all the information
     file_inode -> type = DIRECTORY_TYPE;
     file_inode -> permissions = BOTH_ALLOW;
@@ -859,6 +862,19 @@ static struct dirent* createDirectory(struct dirent* cur_dirent, char* name){
     file_inode -> nlink = 0;
     file_inode -> size = 0;
     file_inode -> mtime = time(NULL);    
+
+    struct dirent* base = (struct dirent*)appendPosition(file_inode,0,0,1);
+    base->inode = file_inode->index;
+    strcpy(base->name,".");
+    base->type = DIRECTORY_TYPE;
+    base->offset = -1;
+    file_inode -> size = 2*sizeof(struct dirent);
+
+    base = base + 1;
+    base->inode = cur_dirent->inode;
+    strcpy(base->name,"..");
+    base->type = DIRECTORY_TYPE;
+    base->offset = -1;
 
     struct inode* inode = getInode(cur_dirent->inode);;
     struct dirent* direct = (struct dirent*)appendPosition(inode,inode->size/block_size,inode->size%block_size,1);

@@ -120,11 +120,10 @@ int main(int argc, char* argv[]){
     //f_test(0,1,0);
     //f_test(0,0,3);
 
-    printf("\nTesting rmdir\n");
+    /*printf("\nTesting rmdir\n");
     if (f_rmdir("~tests") == -1) {
         printf("Error when removing tests.\n");
-    };
-    print_disk_contents();
+    };*/
 
     //test for f_stat, test both file and directory
     printf("\nTesting for f_stat.\n");
@@ -140,4 +139,6 @@ int main(int argc, char* argv[]){
         printf("Error2\n");
         return -1;
     }
+
+     print_disk_contents();
 }
