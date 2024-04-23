@@ -38,6 +38,7 @@ static char* getData(int index){
     return (char*)block_data + block_size * index; 
 }
 
+
 void f_test(int index,int block,int num){
     struct inode* inode = getInode(index);
     printf("Ionde[%d]\n",index);
@@ -147,7 +148,12 @@ static void cleaninode(struct inode* inode, int all) {
         int next_free = getInode(sb->free_inode)->parent;
         getInode(sb->free_inode)->parent = inode->index; 
         inode->parent = next_free;
-        inode->type = -1;
+        inode->type = 0;
+        inode->mtime = 0;
+        inode->size = 0;
+        inode->nlink = 0;
+        return;
+
     }
     // Additionally, reset inode metadata (optional based on requirement)
     inode->size = 0;         // Reset file size

@@ -4,7 +4,58 @@
 #include <time.h>
 #include <string.h>
 
+#define DEFAULT_SIZE_MB 1
+#define MB_TO_BYTES(mb) ((mb) * 1024 * 1024)
+#define BLOCK_SIZE 512
+#define N_DBLOCKS 10
+#define N_IBLOCKS 4
+#define INODES_PER_BLOCK (BLOCK_SIZE / sizeof(struct inode))
+
 //export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+
+void print_disk_contents() {
+    FILE *file = fopen("diskimage", "rb");
+    if (!file) {
+        perror("Failed to open file");
+        exit(EXIT_FAILURE);
+    }
+
+    struct Superblock sb;
+    if (fread(&sb, sizeof(sb), 1, file) != 1) {
+        perror("Failed to read superblock");
+        fclose(file);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Superblock:\n");
+    printf("  Size: %d\n  Inode Offset: %d\n  Data Offset: %d\n  Free Inode: %d\n  Free Block: %d\n",
+           sb.size, sb.inode_offset, sb.data_offset, sb.free_inode, sb.free_block);
+
+    struct inode in;
+    printf("\nInodes:\n");
+    fseek(file, (sb.inode_offset+1) * BLOCK_SIZE , SEEK_SET);
+    for (int i = 0; i < 8 * INODES_PER_BLOCK; ++i) {
+        if (fread(&in, sizeof(struct inode), 1, file) != 1) {
+            break;  // Stop if we fail to read an inode
+        }
+        printf("Inode %d: Type %d, Parent %d, Permissions %d, Size %d, Mtime %d, dblock: %d %d %d\n", 
+               i, in.type, in.parent, in.permissions, in.size, in.mtime, in.dblocks[0], in.dblocks[1], in.dblocks[2]);
+    }
+
+    // Assuming directory entries are located right at the data offset
+    printf("\nDirectory Entries:\n");
+    fseek(file, (sb.data_offset+1) * BLOCK_SIZE, SEEK_SET);
+    struct dirent de;
+    int count = 0;
+    while (fread(&de, sizeof(struct dirent), 1, file) == 1) {
+        if (strlen(de.name) > 0) {  // Only print valid entries
+            printf("  Index: %d, Entry: %s, Inode: %d, Type: %d\n", count, de.name, de.inode, de.type);
+        }
+        count ++;
+    }
+
+    fclose(file);
+}
 
 int main(int argc, char* argv[]){
     if(disk_open("diskimage")!=1){
@@ -55,6 +106,7 @@ int main(int argc, char* argv[]){
     }
 
     //test for f_opendir
+    printf("Testing f_opendir");
     struct dirent* curdir = f_opendir("./");
     if (curdir == NULL) {
         printf("Error when opening the root directory\n");
@@ -63,12 +115,19 @@ int main(int argc, char* argv[]){
     printf("the root directory's inode is %d\n", curdir->inode);
     f_closedir(curdir);
 
-    printf("Testing mkdir\n");
+    printf("\nTesting mkdir\n");
     f_mkdir("~tests");
-    f_test(0,1,0);
-    f_test(0,0,3);
+    //f_test(0,1,0);
+    //f_test(0,0,3);
+
+    printf("\nTesting rmdir\n");
+    if (f_rmdir("~tests") == -1) {
+        printf("Error when removing tests.\n");
+    };
+    print_disk_contents();
 
     //test for f_stat, test both file and directory
+    printf("\nTesting for f_stat.\n");
     if (f_stat("test.txt") == -1) {
         printf("Error when checking status of file test.txt\n");
     }
