@@ -29,6 +29,7 @@ struct Superblock {
 };
 
 struct inode {
+    int index;
     int type;
     int permissions;
     int parent;        // Used to store the next free inode
@@ -59,18 +60,19 @@ void create_disk_image(const char* file_name, int size_mb) {
     fwrite(&sb, sizeof(sb), 1, file);
 
     // Initialize the root directory inode
-    struct inode root_inode = {1, 0, -1, 1, 3 * sizeof(struct dirent), time(NULL), {0}, {0}, 0};
+    struct inode root_inode = {0,1, 0, -1, 1, 3 * sizeof(struct dirent), time(NULL), {0}, {0}, 0};
     fwrite(&root_inode, sizeof(root_inode), 1, file);
 
     // Initialize a file inode with fake content
     char file_content[] = "Hello, this is some text in the file.";
     int file_size = sizeof(file_content);
-    struct inode file_inode = {0, READ_WRITE, -1, 1, file_size, time(NULL), {1, 0}, {0}, 0};
+    struct inode file_inode = {1,0, READ_WRITE, -1, 1, file_size, time(NULL), {1, 0}, {0}, 0};
     fwrite(&file_inode, sizeof(file_inode), 1, file);
 
     // Initialize remaining inodes and link them as free inodes
-    struct inode empty_inode = {0, 0, -1, 0, 0, 0, {0}, {0}, 0};
+    struct inode empty_inode = {0, 0, 0, -1, 0, 0, 0, {0}, {0}, 0};
     for (int i = 2; i < 8 * INODES_PER_BLOCK; ++i) {
+        empty_inode.index = i;
         empty_inode.parent = (i < (8 * INODES_PER_BLOCK - 1)) ? i + 1 : -1;
         fwrite(&empty_inode, sizeof(empty_inode), 1, file);
     }
@@ -102,7 +104,7 @@ void create_disk_image(const char* file_name, int size_mb) {
     int total_blocks = size_mb * 1024 * 1024 / BLOCK_SIZE;
     int free_blocks = total_blocks - (sb.data_offset + 3);  // Adjust for root and file block
     for (int i = 0; i < free_blocks; ++i) {
-        int next_free_block = (i < free_blocks - 1) ? sb.data_offset + 3 + i : -1;
+        int next_free_block = (i < free_blocks - 1) ? 3+i : -1;
         memset(block, 0, BLOCK_SIZE);  // Clear the block
         memcpy(block, &next_free_block, sizeof(int));
         fwrite(block, BLOCK_SIZE, 1, file);

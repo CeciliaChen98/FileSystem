@@ -7,6 +7,9 @@
 #define N_IBLOCKS 4
 #define max_num 20
 #define max_name 116
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 enum Permission {
     NONE = 0,
@@ -25,6 +28,7 @@ struct Superblock{
 };
 
 struct inode{
+    int index;
 	int type; 		/* tell if it is a directory or a file */
 	int permissions;		/* 4 bytes */
 	int parent;	/* if the current vnode is not in use, 
@@ -74,7 +78,7 @@ int f_write(File* file, void* buffer, int num);
 
 int f_close(File* file);
 
-int f_seek(File* file, int num);
+int f_seek(File* file, int num, int mode);
 
 int f_rewind(File* file);
 

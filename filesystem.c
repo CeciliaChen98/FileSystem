@@ -41,14 +41,18 @@ static char* getData(int index){
 void f_test(int index,int block,int num){
     struct inode* inode = getInode(index);
     printf("Ionde[%d]\n",index);
-    printf("type: %d\n",inode->type);
-    printf("size: %d\n",inode->size);
+    if(index !=0){
+        printf("type: %d\n",inode->type);
+        printf("size: %d\n",inode->size);
+        printf("%d\n",inode->size);
+    }
     printf("block %d: %d\n",block,inode->dblocks[block]);
-    printf("%d\n",inode->size);
     //char* data = (char*) malloc(inode->size);
     //printf("%ld\n",sizeof(data));
     char* data = getData(inode->dblocks[block]);
-    printf("%s\n",((struct dirent*)data+num)->name);
+    printf("dirent name: %s\n",((struct dirent*)data+num)->name);
+    printf("dirent type (file 0, direct 1): %d\n",((struct dirent*)data+num)->type);
+    printf("dirent inode: %d\n",((struct dirent*)data+num)->inode);
     //free(data);
 }
 
@@ -91,7 +95,7 @@ static void freeTokenizer(struct Tokenizer* tokenizer) {
     free(tokenizer);
 }
 
-static void cleaninode(struct inode* inode) {
+static void cleaninode(struct inode* inode, int all) {
     // Assuming there is a function to free blocks and add them to free list
     // void freeBlock(int blocknum);
 
@@ -138,11 +142,16 @@ static void cleaninode(struct inode* inode) {
         inode->i2block = 0; // Reset the doubly indirect block pointer in the inode
     }
 
+    if(all==1){
+        inode->permissions = NONE;
+        int next_free = getInode(sb->free_inode)->parent;
+        getInode(sb->free_inode)->parent = inode->index; 
+        inode->parent = next_free;
+        inode->type = -1;
+    }
     // Additionally, reset inode metadata (optional based on requirement)
-    inode->type = 0;         // Reset type
-    inode->permissions = 0;  // Reset permissions
     inode->size = 0;         // Reset file size
-    inode->mtime = 0;        // Reset modification time
+    inode->mtime = time(NULL);        // Reset modification time
     inode->nlink = 0;        // Reset number of links
 }
 
@@ -201,8 +210,8 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     return NULL;  // If no dirent was found at the specified index
 }
 
-static void* appendPosition(struct inode* inode,int block_index, int position){
-    //printf("block_position: %d, position: %d\n",block_index,position);
+static void* appendPosition(struct inode* inode,int block_index, int position, int request){
+    // request: write = 1, read = 0
     // calculate the offset
     int last_block = block_index;
     int calculated_size = block_index*block_size+position;
@@ -222,6 +231,10 @@ static void* appendPosition(struct inode* inode,int block_index, int position){
             int* ptr = (int*)getData(sb->free_block);
             *ptr = next_free;
         }
+        // clean the data inside the new data block
+        char* new_data_block = getData(data_file);
+        memset(new_data_block,0,block_size);
+
         if(last_block<N_DBLOCKS){
             inode->dblocks[last_block] = data_file;
             return getData(data_file);
@@ -503,6 +516,7 @@ File* f_open(char* filename, char* mode){
     struct dirent* target_file = findDirent(*temp_inode,name,FILE_TYPE);
     int permission = NONE;
     if(target_file!=NULL){permission = getInode(target_file->inode)->permissions;}
+
     // mode
     int int_mode = -1;
     if(strcmp("r",mode)==0){
@@ -549,7 +563,7 @@ File* f_open(char* filename, char* mode){
             file->inode = createFile(target,name)->inode;
         }else{
             file->inode = target_file->inode;
-            cleaninode(getInode(target_file->inode));
+            cleaninode(getInode(target_file->inode),0);
         }
     }
     else if(int_mode==APPEND || int_mode== APPEND_READ){
@@ -662,6 +676,7 @@ int f_rmdir(char* path_name) {
     for (int count = 0; count < path->length; count++) {
         if (cur == NULL) {
             printf("Directory not found\n");
+            freeTokenizer(path);
             return -1;
         }
 
@@ -670,6 +685,7 @@ int f_rmdir(char* path_name) {
                 cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
                 if (cur == NULL) {
                     printf("Directory not empty or not found\n");
+                    freeTokenizer(path);
                     return -1;
                 }
             }
@@ -688,12 +704,7 @@ int f_rmdir(char* path_name) {
         return -1;
     }
 
-    cleaninode(curinode);  // Free the content of inode
-    
-    // add cur into the free inode list
-    struct inode* head = getInode(sb->free_inode);
-    curinode->parent = head->parent;
-    head->parent = cur->inode;
+    cleaninode(curinode,1);  // Free the content of inode
 
     // set the dirent all to 0
     cur->inode = 0;
@@ -881,5 +892,27 @@ struct dirent* f_mkdir(char* path_name){
     struct dirent* new_direct = createDirectory(target,name);
     freeTokenizer(path);
     return new_direct;
+}
+
+int f_seek(File* file, int num, int mode){
+    int index = 0;
+    //
+    if(mode==SEEK_SET){
+
+    }else if(mode==SEEK_CUR){
+        index = block_size * file->block_index + file->position+ num;
+    }else if(mode==SEEK_END){
+        index = getInode(file->inode)->size - num;  
+    }else{
+        return 0;
+    }
+    if(index<0){return -1;}
+    else if(index>getInode(file->inode)->size){
+
+    }else{
+        file->block_index = index/block_size;
+    }
+
+    return 1;
 }
 

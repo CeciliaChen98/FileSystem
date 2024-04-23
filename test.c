@@ -4,6 +4,8 @@
 #include <time.h>
 #include <string.h>
 
+//export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:.
+
 int main(int argc, char* argv[]){
     if(disk_open("diskimage")!=1){
         printf("Error1\n");
@@ -15,13 +17,13 @@ int main(int argc, char* argv[]){
     if(file==NULL){printf("Can't open file\n");}
     else{printf("File open successfully\n");}
 
-   char content[38];
+    char content[38];
     f_read(file,content,38);
     printf("%s\n",content);
     f_close(file);
 
     File* test = f_open("test.txt","r");
-    if(test!=NULL){printf("Wierd Behave\n");}
+    if(test!=NULL){printf("Wierd Behave\n");f_close(test);}
 
     test = f_open("test.txt","w");
     if(test==NULL){}
@@ -63,7 +65,8 @@ int main(int argc, char* argv[]){
 
     printf("Testing mkdir\n");
     f_mkdir("~tests");
-    //f_test(0,1,0);
+    f_test(0,1,0);
+    f_test(0,0,3);
 
     //test for f_stat, test both file and directory
     if (f_stat("test.txt") == -1) {
