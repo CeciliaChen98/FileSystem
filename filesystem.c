@@ -583,11 +583,14 @@ File* f_open(char* filename, char* mode){
     // check if there is a directory needed to open
     struct dirent* target = current_direct;
     if(path->length>1){
-        char * directname = NULL;
-        for(int i=0;i<path->length-1;i++){
-            strcat(directname,path->tokens[i]);
+        int len = strlen(filename)-strlen(path->tokens[path->length-1]);
+        char* pathname = malloc(len+1);
+        for (int i = 0; i < len; i++) {
+            pathname[i] = filename[i];
         }
-        target = f_opendir(directname);
+        pathname[len] = '\0';
+        target = f_opendir(pathname);
+        free(pathname);
     }
     if(target == NULL){freeTokenizer(path);return NULL;}
     char* name = NULL;
@@ -795,11 +798,14 @@ int f_rmdir(char* path_name) {
     int refer_index = parent->size - sizeof(struct dirent);
     int temp_index = refer_index/block_size;
     struct dirent* last = (struct dirent*)appendPosition(parent,temp_index,refer_index%block_size,0);
-    // set the dirent all to 0
-    cur->inode = last->inode;
-    strcpy(cur->name,last->name);  
-    cur->offset = last->offset;
-    cur->type = last->type;
+    if(cur==last){
+    }else{
+         // set the dirent all to 0
+        cur->inode = last->inode;
+        strcpy(cur->name,last->name);  
+        cur->offset = last->offset;
+        cur->type = last->type;
+    }
     
     int tst = ((char*)last-block_data)/block_size;
     if(refer_index%block_size==0){
@@ -1004,13 +1010,17 @@ struct dirent* f_mkdir(char* path_name){
     // check if there is a directory needed to open
     struct dirent* target = current_direct;
     if(path->length>1){
-        char * directname = NULL;
-        for(int i=0;i<path->length-1;i++){
-            strcat(directname,path->tokens[i]);
+        int len = strlen(path_name)-strlen(path->tokens[path->length-1]);
+        char* pathname = malloc(len+1);
+        for (int i = 0; i < len; i++) {
+            pathname[i] = path_name[i];
         }
-        target = f_opendir(directname);
+        pathname[len] = '\0';
+        target = f_opendir(pathname);
+        free(pathname);
     }
     if(target == NULL){freeTokenizer(path);return NULL;}
+
     char* name = NULL;
     name = path->tokens[path->length-1];
     struct inode* temp_inode = getInode(target->inode);
@@ -1056,11 +1066,14 @@ int f_delete(char* filename){
     // check if there is a directory needed to open
     struct dirent* target = current_direct;
     if(path->length>1){
-        char * directname = NULL;
-        for(int i=0;i<path->length-1;i++){
-            strcat(directname,path->tokens[i]);
+        int len = strlen(filename)-strlen(path->tokens[path->length-1]);
+        char* pathname = malloc(len+1);
+        for (int i = 0; i < len; i++) {
+            pathname[i] = filename[i];
         }
-        target = f_opendir(directname);
+        pathname[len] = '\0';
+        target = f_opendir(pathname);
+        free(pathname);
     }
     if(target == NULL){freeTokenizer(path);return -1;}
     char* name = NULL;
@@ -1079,12 +1092,14 @@ int f_delete(char* filename){
     int refer_index = temp_inode->size - sizeof(struct dirent);
     int temp_index = refer_index/block_size;
     struct dirent* last = (struct dirent*)appendPosition(temp_inode,temp_index,refer_index%block_size,0);
-    // set the dirent all to 0
-    target_file->inode = last->inode;
-    strcpy(target_file->name,last->name);  
-    target_file->offset = last->offset;
-    target_file->type = last->type;
-    
+    if(last==target_file){
+    }else{
+        // set the dirent all to 0
+        target_file->inode = last->inode;
+        strcpy(target_file->name,last->name);  
+        target_file->offset = last->offset;
+        target_file->type = last->type;
+    }
     int tst = ((char*)last-block_data)/block_size;
     if(refer_index%block_size==0){
         freeBlock(tst);

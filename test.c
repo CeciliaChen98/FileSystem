@@ -105,7 +105,7 @@ int main(int argc, char* argv[]){
         printf("%s\n",new_content);
         f_close(test);
     }
-
+    
     //test for f_opendir
     printf("Testing f_opendir\n");
     struct dirent* curdir = f_opendir("./");
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]){
     f_closedir(curdir);
 
     printf("\nTesting mkdir\n");
-    f_mkdir("~tests");
+    f_mkdir("./tests");
     //f_test(0,1,0);
     //f_test(0,0,3);
 
