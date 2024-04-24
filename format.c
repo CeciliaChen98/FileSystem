@@ -88,8 +88,6 @@ void create_disk_image(const char* file_name, int size_mb) {
     struct dirent root_entries[3] = {{0, 1, -1, "."}, {-1, -1, -1, ".."}, {1, 0, -1, "file.txt"}};
     fwrite(root_entries, sizeof(root_entries), 1, file);
 
-
-
     // Write file content block
     char block[BLOCK_SIZE] = {0};
     memcpy(block, file_content, file_size);

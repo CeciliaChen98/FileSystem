@@ -145,6 +145,34 @@ int main(int argc, char* argv[]){
     if (f_mkdir("./layerone") == NULL) {
         printf("Error when creating new directory\n");
     }
+    if (f_mkdir("./layerone2") == NULL) {
+        printf("Error when creating layerone2\n");
+    }
+    if (f_mkdir("./layerone3") == NULL) {
+        printf("Error when creating layerone3\n");
+    }
+
+    if (f_mkdir("./layerone/layertwo") == NULL) {
+        printf("Error when creating layer two.\n");
+    }
+
+    if (f_open("./layerone/layertwo/layertwotext.txt", "w") == NULL) {
+        printf("Error when creating a file in layertwo.\n");
+    }
+
+    printf("\nTesting opendir and readdir.\n");
+    struct dirent* parent = f_opendir("./");
+    if (parent == NULL) {
+        printf("Error when openning parent dir\n");
+    }
+    struct dirent* cur = f_readdir(parent);
+    if (cur == NULL) {
+        printf("Error when reading the first child.\n");
+    }
+    while (cur != NULL) {
+        printf("The child dir inode is %d\n", cur->inode);
+        cur = f_readdir(parent);
+    }
 
     if(disk_close()!=1){
         printf("Error2\n");
