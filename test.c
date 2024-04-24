@@ -107,7 +107,7 @@ int main(int argc, char* argv[]){
     }
 
     //test for f_opendir
-    printf("Testing f_opendir");
+    printf("Testing f_opendir\n");
     struct dirent* curdir = f_opendir("./");
     if (curdir == NULL) {
         printf("Error when opening the root directory\n");
@@ -136,9 +136,14 @@ int main(int argc, char* argv[]){
     if(f_delete("test.txt")==-1){
         printf("Error when removing test.txt.\n");
     }
-    
+
     if (f_stat("./") == -1) {
         printf("Error when checking status of the root directory.\n");
+    }
+    
+    printf("\nTesting multilayer directories\n");
+    if (f_mkdir("./layerone") == NULL) {
+        printf("Error when creating new directory\n");
     }
 
     if(disk_close()!=1){
