@@ -49,7 +49,7 @@ void print_disk_contents() {
     int count = 0;
     while (fread(&de, sizeof(struct dirent), 1, file) == 1) {
         if (strlen(de.name) > 0) {  // Only print valid entries
-            printf("  Index: %d, Entry: %s, Inode: %d, Type: %d\n", count, de.name, de.inode, de.type);
+            printf("  Index: %d, Entry: %s, Inode: %d, Type: %d\n", count/4, de.name, de.inode, de.type);
         }
         count ++;
     }

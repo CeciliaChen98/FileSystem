@@ -85,7 +85,7 @@ void create_disk_image(const char* file_name, int size_mb) {
     }
 
     // Write root directory data block with directory entries
-    struct dirent root_entries[3] = {{0, 1, -1, "."}, {0, -1, -1, ".."}, {1, 0, -1, "file.txt"}};
+    struct dirent root_entries[3] = {{0, 1, -1, "."}, {-1, -1, -1, ".."}, {1, 0, -1, "file.txt"}};
     fwrite(root_entries, sizeof(root_entries), 1, file);
 
 
