@@ -211,12 +211,12 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
 
 static int assignBlock(){
 
-    if(sb->free_block==-1){return -1;}
+    if(sb->free_block==-1){printf("No more memory\n");return -1;}
     int head_free = *(int*)getData(sb->free_block);
     int data_file;
     if(head_free==-1){
         data_file = sb->free_block;
-        sb->free_block = -1;
+        sb->free_block = -1;    
     }else{
         data_file = head_free;
         int next_free = *(int*)getData(head_free);
@@ -361,7 +361,7 @@ static struct dirent* createFile(struct dirent* cur_dirent, char* name){
 
     // we don't assign any data block for a new file
     // rearrange the free inode 
-    if(sb->free_inode==-1){return NULL;}
+    if(sb->free_inode==-1){printf("No more memory\n"); return NULL;}
     int free_i = getInode(sb->free_inode)->parent;
     struct inode* file_inode;
     if(free_i!=-1){
@@ -990,7 +990,7 @@ static struct dirent* createDirectory(struct dirent* cur_dirent, char* name){
 
     // we don't assign any data block for a new file
     // rearrange the free inode 
-    if(sb->free_inode==-1){return NULL;}
+    if(sb->free_inode==-1){printf("No more memory\n"); return NULL;}
     int free_i = getInode(sb->free_inode)->parent;
     struct inode* file_inode;
     if(free_i!=-1){
