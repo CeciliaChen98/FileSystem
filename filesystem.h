@@ -11,11 +11,16 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+// uppercase means CAN, lowercase means CANNOT
 enum Permission {
     NONE = 0,
-    READ_ONLY = 1,
-    WRITE_ONLY = 2,
-    BOTH_ALLOW = 3
+    Rwx= 1,
+    rWx = 2,
+    RWx = 3,
+    rwX = 4,
+    RwX = 5, // allow read and execute
+    rWX = 6, 
+    RWX = 7, // all allow
 };
 
 struct Superblock{
@@ -61,7 +66,7 @@ struct inode* inode_data;
 char* block_data;
 int block_size;
 FILE* diskimage; 
-File file_table[max_num];
+//File file_table[max_num];
 struct dirent* current_direct;
 struct dirent* root_direct;
 
@@ -70,7 +75,6 @@ int disk_open(char* diskname);
 int disk_close( );
 
 File* f_open(char* filename, char* mode);
-
 
 int f_read(File *file, void* buffer, int num);
 
@@ -82,9 +86,11 @@ int f_seek(File* file, int num, int mode);
 
 int f_rewind(File* file);
 
+void f_path();
+
 int f_stat(char* filename);
 
-int  f_delete(char* filename);
+int f_delete(char* filename);
 
 struct dirent* f_opendir(char* directory);
 
@@ -94,8 +100,6 @@ int f_closedir(struct dirent* directory);
 
 struct dirent* f_mkdir(char* path_name);
 
-int f_rmdir(char* path_name);
-
-void f_test(int index,int block, int num);
+int f_rmdir(char* path_name,int flag);
 
 #endif

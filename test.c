@@ -122,7 +122,7 @@ int main(int argc, char* argv[]){
     //f_test(0,0,3);
 
     printf("\nTesting rmdir\n");
-    if (f_rmdir("~tests") == -1) {
+    if (f_rmdir("~tests",0) == -1) {
         printf("Error when removing tests.\n");
     };
 
@@ -166,6 +166,7 @@ int main(int argc, char* argv[]){
         printf("Error when openning parent dir\n");
     }
     struct dirent* cur = f_readdir(parent);
+    
     if (cur == NULL) {
         printf("Error when reading the first child.\n");
     }
@@ -173,6 +174,29 @@ int main(int argc, char* argv[]){
         printf("The child dir inode is %d\n", cur->inode);
         cur = f_readdir(parent);
     }
+
+    struct dirent* parent2 = f_opendir("./layerone");
+    if (parent2 == NULL) {
+        printf("Error when openning parent dir\n");
+    }
+    struct dirent* cur2 = f_readdir(parent2);
+    if (cur2 == NULL) {
+        printf("Error when reading the first child.\n");
+    }
+    while (cur2 != NULL) {
+        printf("The child dir inode is %d\n", cur2->inode);
+        cur2 = f_readdir(parent2);
+    }
+    cur = f_opendir("./layerone/layertwo");
+    printf("Testing f_path\n");
+    f_path(cur);
+    printf("\n");
+    /*
+    printf("Testing rmdir with layerone\n");  
+    if(f_rmdir("./layerone",1)!=0){
+        printf("Error with rmdir\n");
+    }*/
+
 
     if(disk_close()!=1){
         printf("Error2\n");
