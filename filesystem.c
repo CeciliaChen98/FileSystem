@@ -144,7 +144,7 @@ static void cleaninode(struct inode* inode, int all) {
     inode->nlink = 0;        // Reset number of links
 }
 
-static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
+/*static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     int read_num = 0;
     int count = 0;
 
@@ -207,12 +207,13 @@ static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
     }
 
     return NULL;  // If no dirent was found at the specified index
-}
+}*/
 
 static struct dirent* findAllByIndex(struct inode inode, int INDEX) {
     int read_num = 0;
     int count = 0;
 
+    if(INDEX>inode.size/sizeof(struct dirent)-2){return NULL;}
     // Direct blocks
     for (int i = 0; i < N_DBLOCKS && read_num < inode.size; i++) {
         char* data = getData(inode.dblocks[i]);
@@ -455,7 +456,7 @@ static struct dirent* createFile(struct dirent* cur_dirent, char* name){
 
 }
 
-static struct dirent* findDirent(struct inode inode, char* target, int type) {
+static struct dirent* findDirent(struct inode inode, char* target) {
     int read_num = 0;
 
     // Loop through direct blocks
@@ -464,7 +465,7 @@ static struct dirent* findDirent(struct inode inode, char* target, int type) {
         int block_num = 0;
         while (block_num < block_size) {
             struct dirent* cur_dirent = (struct dirent*)data;
-            if (strcmp(target, cur_dirent->name) == 0 && cur_dirent->type == type) {
+            if (strcmp(target, cur_dirent->name) == 0) {
                 return cur_dirent;
             }
             read_num += sizeof(struct dirent);
@@ -484,7 +485,7 @@ static struct dirent* findDirent(struct inode inode, char* target, int type) {
             int block_num = 0;
             while (block_num < block_size) {
                 struct dirent* cur_dirent = (struct dirent*)data;
-                if (strcmp(target, cur_dirent->name) == 0 && cur_dirent->type == type) {
+                if (strcmp(target, cur_dirent->name) == 0 ) {
                     return cur_dirent;
                 }
                 read_num += sizeof(struct dirent);
@@ -506,7 +507,7 @@ static struct dirent* findDirent(struct inode inode, char* target, int type) {
             int block_num = 0;
             while (block_num < block_size) {
                 struct dirent* cur_dirent = (struct dirent*)data;
-                if (strcmp(target, cur_dirent->name) == 0 && cur_dirent->type == type) {
+                if (strcmp(target, cur_dirent->name) == 0) {
                     return cur_dirent;
                 }
                 read_num += sizeof(struct dirent);
@@ -667,7 +668,7 @@ int disk_open(char *diskname){
     root_direct->type = DIRECTORY_TYPE;
     strcpy(root_direct->name,"root");
     
-    printf("inode %d\n",inode_data->size);
+    //printf("inode %d\n",inode_data->size);
     current_direct = malloc(sizeof(struct dirent));
     current_direct->inode = 0;
     current_direct->type = DIRECTORY_TYPE;
@@ -686,7 +687,7 @@ int disk_open(char *diskname){
         return 1; // Exit program with an error
     }
     fseek(diskimage,512+inode_num,SEEK_SET);
-    printf("num of bytes %d\n",num_bytes); //好像少了128bytes？
+    //printf("num of bytes %d\n",num_bytes); //好像少了128bytes？
 
     data_num = num_bytes-512-inode_num;
     block_data = (char*)malloc(data_num);
@@ -758,10 +759,10 @@ File* f_open(char* filename, char* mode){
     name = path->tokens[path->length-1];
     if(strcmp(name,"..")==0||strcmp(name,".")==0){freeTokenizer(path);return NULL;}
     struct inode* temp_inode = getInode(target->inode);
-    struct dirent* target_file = findDirent(*temp_inode,name,FILE_TYPE);
+    struct dirent* target_file = findDirent(*temp_inode,name);
     int permission = NONE;
     if(target_file!=NULL){permission = getInode(target_file->inode)->permissions;}
-
+    if(target_file!=NULL){if(target_file->type==DIRECTORY_TYPE){printf("cannot open '%s': is a directory\n",name);}}
     // mode
     int int_mode = -1;
     if(strcmp("r",mode)==0){
@@ -860,18 +861,24 @@ struct dirent* f_opendir(char* directory) {
             printf("Path not found\n");
             return NULL;
         }
+        if (cur->type == FILE_TYPE){
+            printf("Path not found\n");
+            return NULL;
+        }
         // Perform directory matching or traversal
         if (strcmp(cur->name, path->tokens[count]) == 0) {
             // If the directory name matches the current token, continue to next token
             continue;
         }
         // Move to the next directory in the path
-        cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+        cur = findDirent(inode_data[cur->inode], path->tokens[count]);
     }
     freeTokenizer(path);
     if(cur == NULL){
         printf("Path not found\n");
         return NULL;
+    }else if (cur->type == FILE_TYPE){
+        printf("cannot open directory: is a file\n");
     }
     cur->offset = 0;
     // Return the final directory entry found, or NULL if not found
@@ -894,10 +901,15 @@ int f_rewind(File* file){
 
 struct dirent* f_readdir(struct dirent* directory){
 	// read the current sub-directory according to the offset
+    if(directory->offset==-1){
+        return NULL;
+    }
 	// update the offset;
-    struct dirent* cur = findDirentByIndex(*getInode(directory->inode), directory->offset);
+    struct dirent* cur = findAllByIndex(*getInode(directory->inode), directory->offset);
     if (cur != NULL) {
         directory->offset ++;
+    }else{
+        directory->offset = 0;
     }
     return cur;
 }
@@ -909,23 +921,23 @@ int f_closedir(struct dirent* directory) {
     }
     // remove the dirent from the open file table
 	// set the offset of the directory to 0
-    directory->offset = 0;
+    directory->offset = -1;
 	return 0;
 }
 
-static void path_recur(struct inode* inode){
+static void path_recur(char* path,struct inode* inode){
     
     //printf("%s\n",findDirentByInode(*getInode(0),3)->name);
     if(inode->parent!=-1){
-        path_recur(getInode(inode->parent));
-        printf("/%s",findDirentByInode(*getInode(inode->parent),inode->index)->name);
+        path_recur(path,getInode(inode->parent));
+        strcat(path,findDirentByInode(*getInode(inode->parent), inode->index)->name);
     }else{
-        printf("/root");
+        strcat(path,"/root");
     }   
 }
 
-void f_path(struct dirent* direct) {
-    path_recur(getInode(current_direct->inode));
+void f_path(char* path) {
+    path_recur(path, getInode(current_direct->inode));
 }
 
 static void clearDirect(struct dirent* direct){
@@ -964,22 +976,32 @@ int f_rmdir(char* path_name, int flag) {
 
     for (int count = 0; count < path->length; count++) {
         if (cur == NULL) {
-            printf("Directory not found\n");
+            printf("No such file or directory\n");
             freeTokenizer(path);
             return -1;
         }
 
         if (count == path->length - 1) {  // Last token, should be the directory to delete
             if (strcmp(cur->name, path->tokens[count]) != 0) {
-                cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+                cur = findDirent(inode_data[cur->inode], path->tokens[count]);
                 if (cur == NULL) {
-                    printf("Directory not empty or not found\n");
+                    printf("No such file or directory\n");
+                    freeTokenizer(path);
+                    return -1;
+                }
+                if (cur->type==FILE_TYPE){
+                    printf("failed to remove '%s': Not a directory\n",cur->name);
                     freeTokenizer(path);
                     return -1;
                 }
             }
         } else {
-            cur = findDirent(inode_data[cur->inode], path->tokens[count], DIRECTORY_TYPE);
+            cur = findDirent(inode_data[cur->inode], path->tokens[count]);
+            if (cur->type==FILE_TYPE){
+                printf("No such file or directory\n");
+                freeTokenizer(path);
+                return -1;
+            }
         }
     }
 
@@ -1123,7 +1145,7 @@ int f_read(File *file, void* buffer, int num){
 
 int f_stat(char* filename){
     if (filename == NULL) {
-        printf("Invalid path name\n");
+        printf("Invalid file name\n");
         return -1;
     }
 
@@ -1228,7 +1250,7 @@ struct dirent* f_mkdir(char* path_name){
     char* name = NULL;
     name = path->tokens[path->length-1];
     struct inode* temp_inode = getInode(target->inode);
-    if(findDirent(*temp_inode,name,DIRECTORY_TYPE)!=NULL||findDirent(*temp_inode,name,FILE_TYPE)!=NULL){
+    if(findDirent(*temp_inode,name)!=NULL){
         printf("cannot create directory '%s': File exists\n",name);
         freeTokenizer(path);return NULL;
     }
@@ -1284,9 +1306,17 @@ int f_delete(char* filename){
     name = path->tokens[path->length-1];
     if(strcmp(name,"..")==0||strcmp(name,".")==0){freeTokenizer(path);return -1;}
     struct inode* temp_inode = getInode(target->inode);
-    struct dirent* target_file = findDirent(*temp_inode,name,FILE_TYPE);
+    struct dirent* target_file = findDirent(*temp_inode,name);
+    if(target_file ==NULL){
+        printf("cannot remove '%s': No such file or directory\n",name);
+        return 0;
+    }
+    if(target_file->type!=FILE_TYPE){
+        printf("cannot remove '%s': Is a directory\n",name);
+        return 0;
+    }
     
-    if(target_file ==NULL){return 0;}
+    
     struct inode* target_inode = getInode(target_file->inode);
     freeTokenizer(path);
     
