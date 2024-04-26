@@ -86,7 +86,7 @@ int f_seek(File* file, int num, int mode);
 
 int f_rewind(File* file);
 
-void f_path();
+void f_path(char* path);
 
 int f_stat(char* filename);
 
