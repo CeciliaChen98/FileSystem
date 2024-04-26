@@ -25,36 +25,51 @@
 #define SUSPEND_FLAG 1
 #define STOP_FLAG 2
 #define RESUME_FLAG 3
+#define PRINT 0
+#define WRITE 1
+#define APPEND 2
 
-// ls
-// ls path
-// ls path > output
-// ls path >output
-// ls -flag
-// ls -flag path > output
-// ls -flag path >output
-// ls > output
-// ls >output
-// flag=> 0:no 1:-l 2:-F
-/*
-void ls_command(char *args[MAX_INPUT_SIZE]){
-    int flag = 0;
-    int output = 0;
-    if(strcmp(args[1],"-l")==0){
-        flag = 1;
-        if(args[2]==NULL){
-            output = 1; 
+char content[4096];
+
+void rm_command(char *args[MAX_INPUT_SIZE]){
+    if(args[1] ==NULL){
+        strcat(content,"rm: missing operand\nTry 'rm --help' for more information.\n");
+    }else if(strcmp(args[1],"--help")==0){
+        strcat(content,"Usage: rm [OPTION]... [FILE]...\nRemove (unlink) the FILE(s).\n");
+    }else{
+        
+        for(int i = 1;i<MAX_INPUT_SIZE;i++){
+            if(args[i]==NULL){return;}
+            f_delete(args[i]);
         }
+    } 
+}
+
+void ls_command(char *args[MAX_INPUT_SIZE]){
+    if(args[1]==NULL){
+        struct dirent* cur = f_opendir(".");
+        struct dirent* dirent = f_readdir(cur);
+        while(dirent!=NULL){
+            strcat(content,dirent->name);
+            strcat(content,"    ");
+            dirent = f_readdir(cur);
+        }
+        strcat(content,"\n");
+        f_closedir(cur);
+        return;
+    }
+    if(strcmp(args[1],"-l")==0){
+        
     }else if(strcmp(args[1],"-F")==0){
 
     }
-}*/
+}
 
 void mkdir_command(char *args[MAX_INPUT_SIZE]){
     if(args[1]==NULL){
-        printf("mkdir: missing operand\nTry 'mkdir --help' for more information.\n");
+        strcat(content, "mkdir: missing operand\nTry 'mkdir --help' for more information.\n");
     }else if(strcmp(args[1],"--help")==0){
-        printf("Usage: mkdir DIRECTORY...\nCreate the DIRECTORY(ies), if they do not already exist.\n");
+        strcat(content, "Usage: mkdir DIRECTORY...\nCreate the DIRECTORY(ies), if they do not already exist.\n");
     }else{
         for(int i=1;i<MAX_INPUT_SIZE;i++){
             if(args[i]==NULL){return;}
@@ -64,26 +79,24 @@ void mkdir_command(char *args[MAX_INPUT_SIZE]){
 }
 
 void pwd_command(){
-   f_path();
-   printf("\n");
+   f_path(content);
+   strcat(content,"\n");
 }
 
 void rmdir_command(char *args[MAX_INPUT_SIZE]){
-    int i = 1;
     int flag = 0;
     if(args[1] ==NULL){
-        printf("rmdir: missing operand\nTry 'rmdir --help' for more information.\n");
+        strcat(content,"rmdir: missing operand\nTry 'rmdir --help' for more information.\n");
     }else if(strcmp(args[1],"--help")==0){
-        printf("Usage: rmdir [OPTION]... DIRECTORY...\nCreate the DIRECTORY(ies), if they do not already exist.\n");
+        strcat(content,"Usage: rmdir [OPTION]... DIRECTORY...\nCreate the DIRECTORY(ies), if they do not already exist.\n");
     }else{
+        int i = 1;
         if(strcmp(args[1],"-r")==0){
-            i++;
+            i=2;
             flag = 1;
         }
-        for(int i;i<MAX_INPUT_SIZE;i++){
-            printf("%d\n",i);
+        for(;i<MAX_INPUT_SIZE;i++){
             if(args[i]==NULL){return;}
-            printf("Here\n");
             f_rmdir(args[i],flag);
         }
     } 
@@ -93,7 +106,7 @@ void cd_command(char *arg){
     if(arg==NULL){
         return;
     }else if(strcmp(arg,"--help")==0){
-        printf("cd: cd [path_dir]\nChange the shell working directory.\nChange the current directory to DIR.\n");
+        strcat(content,"cd: cd [path_dir]\nChange the shell working directory.\nChange the current directory to DIR.\n");
         return;
     }
     struct dirent* handle = f_opendir(arg);
@@ -109,6 +122,7 @@ void execute_command(char *command_line) {
     // check for exit command
     if (strcmp(command_line, "exit") == 0) {
         free(command_line);
+        disk_close();
         exit(0);
     }
 
@@ -143,34 +157,95 @@ void execute_command(char *command_line) {
         entire_command[command_len - 1] = '\0';
     }
 
-    args[arg_count++] = NULL;
+    args[arg_count] = NULL;
+
+    // check if need to redirect
+    
+    int output_flag = -1;
+    char* output;
+    int new_i = 0;
+    char *new_args[MAX_INPUT_SIZE];
+    for(int i=0;i<arg_count;i++){
+        if(strcmp(">>",args[i])==0){
+            output_flag = APPEND;
+            i = i+1;
+            int len = strlen(args[i]);
+            output = (char*) malloc(len+1);
+            strcpy(output, args[i]);
+            output[len]='\0';
+        }else if(strcmp(">",args[i])==0){
+            output_flag = WRITE;
+            i = i+1;
+            int len = strlen(args[i]);
+            output = (char*) malloc(len+1);
+            strcpy(output, args[i]);
+            output[len]='\0';
+        }else if(args[i][0]=='>'&&args[i][1]=='>'){
+            output_flag = APPEND;
+            int len = strlen(args[i]);
+            output = (char*) malloc(len);
+            strcpy(output, args[i]+1);
+            output[len]='\0';
+        }else if(args[i][0]=='>'){
+            output_flag = WRITE;
+            int len = strlen(args[i]);
+            output = (char*) malloc(len);
+            strcpy(output, args[i]+1);
+            output[len]='\0';
+        }else{
+            new_args[new_i] = args[i];
+            new_i++;
+        }
+    }
+    new_args[new_i] = NULL;
+    memset(content, '\0', sizeof(content));
 
     // implement jobs command
-    if (strcmp(args[0], "jobs") == 0){
+    if (strcmp(new_args[0], "jobs") == 0){
         printJobs(job_list);
-        return;
+        if(output_flag==-1){output_flag=0;}
     }
-
-    if(strcmp(args[0],"mkdir")==0){
-        mkdir_command(args);
-        return;
+    else if(strcmp(new_args[0],"mkdir")==0){
+        mkdir_command(new_args);
+        if(output_flag==-1){output_flag=0;}
     }
-
-    if(strcmp(args[0],"rmdir")==0){
-        rmdir_command(args);
-        return;
+    else if(strcmp(new_args[0],"rmdir")==0){
+        rmdir_command(new_args);
+        if(output_flag==-1){output_flag=PRINT;}
     }
-
-    if(strcmp(args[0],"cd") ==0){
-        cd_command(args[1]);
-        return;
+    else if(strcmp(args[0],"cd") ==0){
+        cd_command(new_args[1]);
+        if(output_flag==-1){output_flag=PRINT;}
     }
-
-    if(strcmp(args[0],"pwd")==0){
+    else if(strcmp(args[0],"ls")==0){
+        ls_command(new_args);
+        if(output_flag==-1){output_flag=PRINT;}
+    }else if(strcmp(args[0],"pwd")==0){
         pwd_command();
+        if(output_flag==-1){output_flag=PRINT;}
+    }else if(strcmp(args[0],"rm")==0){
+        rm_command(new_args);
+        if(output_flag==-1){output_flag=PRINT;}
+    }
+    if(output_flag==WRITE){
+        File* file = f_open(output,"w");
+        f_write(file,content,strlen(content));
+        f_close(file);
+        free(output);
         return;
     }
-
+    else if(output_flag==APPEND){
+        File* file = f_open(output,"a");
+        f_write(file,content,strlen(content));
+        f_close(file);
+        free(output);
+        return;
+    }
+    else if(output_flag==PRINT){
+        printf("%s",content);
+        return;
+    }
+    
     // implement kill command
     if (strcmp(args[0], "kill") == 0){
         if (args[1] == NULL){
@@ -339,7 +414,7 @@ void execute_command(char *command_line) {
         jobToResume->is_background = 1; // mark the job as running in the background
         //printf("Resumed job [%d] %s in the background.\n", jobToResume->jobId, jobToResume->command);
         return;
-     }
+    }
 
     // check if the command is ended with '&'
     size_t len = strlen(args[arg_count-2]);
