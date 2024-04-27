@@ -45,6 +45,76 @@ void rm_command(char *args[MAX_INPUT_SIZE]){
     } 
 }
 
+#define ABSOLUTE 1
+#define SYMBOLIC 0
+#define CANREAD 4
+#define CANWRITE 2
+#define CANEXECUTE 1
+// Function to determine if a string is in absolute mode
+int isAbsoluteMode(const char* mode) {
+    // Check each character in the string
+    if(!isdigit(mode[0]) || mode[0] < '0' || mode[0] > '7' || strlen(mode) != 1) return SYMBOLIC;
+    return ABSOLUTE; // Return 1 (true) if all characters are digits within '0'-'7'
+}
+
+void chmod_command(char *args[MAX_INPUT_SIZE]) {
+    if (args[1] == NULL) {
+        strcat(content,"chmod: wrong operand\nTry 'chmod --help' for more information.\n");
+    } else if (strcmp(args[1], "--help") == 0) {
+        printf("Usage: chmod [options] mode file...\n");
+        printf("Mode => Symbolic: [3 char] rwx/RWX, each char: uppercase=>ALLOW lowercase=>NOTALLOW\n");
+        printf("Mode => Absolute: [1 int], the sum of read(4), write(2), execute(1)\n");
+    } else {
+        int mode = isAbsoluteMode(args[1]);
+        int permission = NONE;
+        if (mode == SYMBOLIC) {
+            if (strlen(args[1]) != 3) {
+                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                return;
+            }
+            if (args[1][0] == 'R') {
+                permission += CANREAD;
+            } else if (args[1][0] == 'r'){
+            } else {
+                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                return;
+            }
+
+            if (args[1][1] == 'W') {
+                permission += CANWRITE;
+            } else if (args[1][1] == 'w'){
+            } else {
+                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                return;
+            }
+
+            if (args[1][2] == 'X') {
+                permission += CANEXECUTE;
+            } else if (args[1][2] == 'x'){
+            } else {
+                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                return;
+            }
+        } else {
+            permission = args[1][0] - '0';
+        }
+        for(int i=2;i<MAX_INPUT_SIZE;i++){
+            if(args[i]==NULL){return;}
+            File* file = f_open(args[i], "r");
+            if (file == NULL){
+                printf("%s is not a valid file path\n", args[i]);
+            } else{
+                int result = f_changeMod(file->inode, permission);
+                if (result == -1) {
+                    printf("Error when changing permission\n");
+                }
+                f_close(file);
+            }
+        }
+
+    }
+}
+
 void ls_command(char *args[MAX_INPUT_SIZE]){
     if(args[1]==NULL){
         struct dirent* cur = f_opendir(".");
@@ -213,17 +283,21 @@ void execute_command(char *command_line) {
         rmdir_command(new_args);
         if(output_flag==-1){output_flag=PRINT;}
     }
-    else if(strcmp(args[0],"cd") ==0){
+    else if(strcmp(new_args[0],"cd") ==0){
         cd_command(new_args[1]);
         if(output_flag==-1){output_flag=PRINT;}
     }
-    else if(strcmp(args[0],"ls")==0){
+    else if (strcmp(new_args[0], "chmod") == 0) {
+        chmod_command(new_args);
+        if(output_flag==-1){output_flag=PRINT;}
+    }
+    else if(strcmp(new_args[0],"ls")==0){
         ls_command(new_args);
         if(output_flag==-1){output_flag=PRINT;}
-    }else if(strcmp(args[0],"pwd")==0){
+    }else if(strcmp(new_args[0],"pwd")==0){
         pwd_command();
         if(output_flag==-1){output_flag=PRINT;}
-    }else if(strcmp(args[0],"rm")==0){
+    }else if(strcmp(new_args[0],"rm")==0){
         rm_command(new_args);
         if(output_flag==-1){output_flag=PRINT;}
     }

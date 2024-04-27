@@ -34,6 +34,17 @@ static struct inode* getInode(int index){
     return inode_data + index;
 }
 
+int f_changeMod(int inode, int permission) {
+    struct inode* changeInode = getInode(inode);
+    if (changeInode == NULL || (permission < 0 && permission > 7)) {
+        return -1;
+    } else {
+        changeInode->permissions = permission;
+        printf("The permission of the inode %d is now %d\n", inode, permission);
+        return 0;
+    }
+}
+
 static char* getData(int index){
     return (char*)block_data + block_size * index; 
 }
@@ -762,7 +773,7 @@ File* f_open(char* filename, char* mode){
     struct dirent* target_file = findDirent(*temp_inode,name);
     int permission = NONE;
     if(target_file!=NULL){permission = getInode(target_file->inode)->permissions;}
-    if(target_file!=NULL){if(target_file->type==DIRECTORY_TYPE){printf("cannot open '%s': is a directory\n",name);}}
+    if(target_file!=NULL){if(target_file->type==DIRECTORY_TYPE){printf("cannot open '%s': is a directory\n",name); return NULL;}}
     // mode
     int int_mode = -1;
     if(strcmp("r",mode)==0){

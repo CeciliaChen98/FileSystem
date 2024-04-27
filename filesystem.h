@@ -12,14 +12,15 @@
 #define SEEK_END 2
 
 // uppercase means CAN, lowercase means CANNOT
+// read 4, write 2, execute 1
 enum Permission {
     NONE = 0,
-    Rwx= 1,
+    Rwx= 4,
     rWx = 2,
-    RWx = 3,
-    rwX = 4,
+    RWx = 6,
+    rwX = 1,
     RwX = 5, // allow read and execute
-    rWX = 6, 
+    rWX = 3, 
     RWX = 7, // all allow
 };
 
@@ -101,5 +102,7 @@ int f_closedir(struct dirent* directory);
 struct dirent* f_mkdir(char* path_name);
 
 int f_rmdir(char* path_name,int flag);
+
+int f_changeMod(int inode, int permission);
 
 #endif

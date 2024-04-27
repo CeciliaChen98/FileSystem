@@ -14,9 +14,13 @@
 
 enum Permission {
     NONE = 0,
-    READ_ONLY = 1,
-    WRITE_ONLY = 2,
-    READ_WRITE = 3
+    Rwx= 4,
+    rWx = 2,
+    RWx = 6,
+    rwX = 1,
+    RwX = 5, // allow read and execute
+    rWX = 3, 
+    RWX = 7, // all allow
 };
 
 struct Superblock {
@@ -66,7 +70,7 @@ void create_disk_image(const char* file_name, int size_mb) {
     // Initialize a file inode with fake content
     char file_content[] = "Hello, this is some text in the file.";
     int file_size = sizeof(file_content);
-    struct inode file_inode = {1,0, READ_WRITE, -1, 1, file_size, time(NULL), {1, 0}, {0}, 0};
+    struct inode file_inode = {1,0, RWx, -1, 1, file_size, time(NULL), {1, 0}, {0}, 0};
     fwrite(&file_inode, sizeof(file_inode), 1, file);
 
     // Initialize remaining inodes and link them as free inodes

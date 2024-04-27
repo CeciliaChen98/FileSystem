@@ -189,13 +189,25 @@ int main(int argc, char* argv[]){
     }
     cur = f_opendir("./layerone/layertwo");
     printf("Testing f_path\n");
-    f_path(cur);
+    //f_path(cur->name);
     printf("\n");
     /*
     printf("Testing rmdir with layerone\n");  
     if(f_rmdir("./layerone",1)!=0){
         printf("Error with rmdir\n");
     }*/
+
+    printf("Testing for chmod.\n");
+    File* testfile = f_open("file.txt", "r");
+    f_close(testfile);
+    File* testfile2 = f_open("fileee.txt", "r");
+    if (testfile == NULL) {
+        printf("File not exists.\n");
+    }
+    if (testfile2 == NULL) {
+        printf("File not exists 2.\n");
+    }
+
 
 
     if(disk_close()!=1){
