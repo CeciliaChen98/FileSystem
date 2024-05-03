@@ -777,6 +777,11 @@ File* f_open(char* filename, char* mode){
     // mode
     int int_mode = -1;
     if(strcmp("r",mode)==0){
+        if(target_file==NULL){
+            printf("%s:No such file or directory\n",filename);
+            freeTokenizer(path);
+            return NULL;
+        }
         if(permission!=Rwx&&permission!=RWx&&permission!=RWX&&permission!=RwX){
             printf("Wrong permission\n");
             freeTokenizer(path);
@@ -785,6 +790,11 @@ File* f_open(char* filename, char* mode){
         int_mode = READ;
     }
     else if(strcmp("r+",mode)==0){
+        if(target_file==NULL){
+            printf("%s:No such file or directory\n",filename);
+            freeTokenizer(path);
+            return NULL;
+        }
         if(permission!=RWX&&permission!=RWx){
             printf("Wrong permission\n");
             freeTokenizer(path);
@@ -898,7 +908,7 @@ struct dirent* f_opendir(char* directory) {
 
 int f_close(File* file){
     if(file==NULL){return 0;}
-    getInode(file->inode)->nlink--;
+    //getInode(file->inode)->nlink--;
     free(file);
     return 1;
 }
@@ -941,6 +951,7 @@ static void path_recur(char* path,struct inode* inode){
     //printf("%s\n",findDirentByInode(*getInode(0),3)->name);
     if(inode->parent!=-1){
         path_recur(path,getInode(inode->parent));
+        strcat(path,"/");
         strcat(path,findDirentByInode(*getInode(inode->parent), inode->index)->name);
     }else{
         strcat(path,"/root");

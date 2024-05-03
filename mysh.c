@@ -148,9 +148,19 @@ void mkdir_command(char *args[MAX_INPUT_SIZE]){
     }   
 }
 
+void cat_command(char *args[MAX_INPUT_SIZE]){
+    for(int i=1;i<MAX_INPUT_SIZE;i++){
+        if(args[i]==NULL){return;}
+        File* file = f_open(args[i],"r");
+        if(file==NULL){return;}
+        f_read(file,content,10);
+        f_close(file);
+    }
+}
+
 void pwd_command(){
-   f_path(content);
-   strcat(content,"\n");
+    f_path(content);
+    strcat(content,"\n");
 }
 
 void rmdir_command(char *args[MAX_INPUT_SIZE]){
@@ -181,8 +191,12 @@ void cd_command(char *arg){
     }
     struct dirent* handle = f_opendir(arg);
     if(handle!=NULL){
-        current_direct = handle;
+        current_direct->inode = handle->inode;
+        current_direct->offset = handle->inode;
+        current_direct->type = handle->inode;
+        strcpy(current_direct->name,handle->name);
     }
+    f_closedir(handle);
 }
 
 // parses and executes the given command line using a child process
@@ -191,7 +205,7 @@ void execute_command(char *command_line) {
     
     // check for exit command
     if (strcmp(command_line, "exit") == 0) {
-        free(command_line);
+        //free(command_line);
         disk_close();
         exit(0);
     }
@@ -285,6 +299,10 @@ void execute_command(char *command_line) {
     }
     else if(strcmp(new_args[0],"cd") ==0){
         cd_command(new_args[1]);
+        if(output_flag==-1){output_flag=PRINT;}
+    }
+    else if(strcmp(new_args[0],"cat") ==0&&new_args[1]!=NULL){
+        cat_command(new_args);
         if(output_flag==-1){output_flag=PRINT;}
     }
     else if (strcmp(new_args[0], "chmod") == 0) {
