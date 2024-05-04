@@ -15,6 +15,7 @@
 #include <termios.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <sys/ioctl.h>
 #include "job.h"
 #include "filesystem.h"
 
@@ -30,17 +31,28 @@
 #define APPEND 2
 
 char content[4096];
+int output_flag;
+int input_flag;
 
 void rm_command(char *args[MAX_INPUT_SIZE]){
     if(args[1] ==NULL){
         strcat(content,"rm: missing operand\nTry 'rm --help' for more information.\n");
     }else if(strcmp(args[1],"--help")==0){
-        strcat(content,"Usage: rm [OPTION]... [FILE]...\nRemove (unlink) the FILE(s).\n");
+        strcat(content,"Usage: rm ... [FILE]...\nRemove (unlink) the FILE(s).\n");
+        strcat(content,"Usage: rm -rf ... [DIRECTORY]...\nRemove (unlink) a empty/non-empty DIRECTORY.\n");
     }else{
-        
-        for(int i = 1;i<MAX_INPUT_SIZE;i++){
-            if(args[i]==NULL){return;}
-            f_delete(args[i]);
+        if(strcmp(args[1],"-rf")==0){
+            for(int i = 2;i<MAX_INPUT_SIZE;i++){
+                if(args[i]==NULL){return;}
+                f_rmdir(args[i],1);
+                //printf("Current dirent: inode: %d, name: %s\n",current_direct->inode,current_direct->name);
+            }
+        }
+        else{
+            for(int i = 1;i<MAX_INPUT_SIZE;i++){
+                if(args[i]==NULL){return;}
+                f_remove(args[i]);
+            }
         }
     } 
 }
@@ -69,14 +81,14 @@ void chmod_command(char *args[MAX_INPUT_SIZE]) {
         int permission = NONE;
         if (mode == SYMBOLIC) {
             if (strlen(args[1]) != 3) {
-                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                printf("Ilegal mode input, try 'chmod --help' for more information.\n");
                 return;
             }
             if (args[1][0] == 'R') {
                 permission += CANREAD;
             } else if (args[1][0] == 'r'){
             } else {
-                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                printf("Ilegal mode input, try 'chmod --help' for more information.\n");
                 return;
             }
 
@@ -84,7 +96,7 @@ void chmod_command(char *args[MAX_INPUT_SIZE]) {
                 permission += CANWRITE;
             } else if (args[1][1] == 'w'){
             } else {
-                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                printf("Ilegal mode input, try 'chmod --help' for more information.\n");
                 return;
             }
 
@@ -92,7 +104,7 @@ void chmod_command(char *args[MAX_INPUT_SIZE]) {
                 permission += CANEXECUTE;
             } else if (args[1][2] == 'x'){
             } else {
-                printf("Ilegal mode input, try 'rm --help' for more information.\n");
+                printf("Ilegal mode input, try 'chmod --help' for more information.\n");
                 return;
             }
         } else {
@@ -148,14 +160,95 @@ void mkdir_command(char *args[MAX_INPUT_SIZE]){
     }   
 }
 
-void cat_command(char *args[MAX_INPUT_SIZE]){
+// Function to get terminal size
+int get_terminal_size(int *rows, int *cols) {
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1)
+        return -1;
+    *rows = ws.ws_row;
+    *cols = ws.ws_col;
+    return 0;
+}
+
+void more_command(char *args[], char* output) {
+    int rows, cols;
+    if (get_terminal_size(&rows, &cols) != 0) {
+        strcat(content, "more: faults when trying to get the screen size\n");
+        return;
+    }
+
+    File *output_file = NULL;
+    if (output_flag == APPEND) {
+        output_file = f_open(output, "a");
+    } else if (output_flag == WRITE) {
+        output_file = f_open(output, "w");
+    }
+
+    char buffer[2]; // Buffer for a single character and null-terminator
+    buffer[1] = '\0'; // Ensure it is always null-terminated
+
+    for (int i = 1; args[i] != NULL; i++) {
+        File *file = f_open(args[i], "r");
+        if (file == NULL) {
+            strcat(content, "more: cannot open file ");
+            strcat(content, args[i]);
+            strcat(content, "\n");
+            continue;
+        }
+
+        int line_count = 0;
+        while (f_read(file, buffer, 1) == 1) {
+            if (output_flag == PRINT) {
+                printf("%s",buffer);
+            } else {
+                if (output_file != NULL) {
+                    f_write(output_file,buffer, 1);
+                }
+            }
+            if (buffer[0] == '\n') {
+                line_count++;
+            }
+            if (line_count >= rows - 1) {
+                strcat(content, "Press ENTER to continue...");
+                while (getchar() != '\n'); // Wait for Enter key
+                line_count = 0; // Reset line count
+            }
+        }
+    
+        f_close(file);
+    }
+
+    if (output_file != NULL) {
+        f_close(output_file);
+    }
+}
+
+
+void cat_command(char *args[MAX_INPUT_SIZE],char* output){
+    char buffer[1];
+    File *output_file;
+    if(output_flag==APPEND){
+        output_file= f_open(output,"a");
+    }else if(output_flag==WRITE){
+        output_file= f_open(output,"w");
+    }
     for(int i=1;i<MAX_INPUT_SIZE;i++){
         if(args[i]==NULL){return;}
         File* file = f_open(args[i],"r");
         if(file==NULL){return;}
-        f_read(file,content,10);
+        while(f_read(file,buffer,1)==1){
+            if(output_flag==PRINT){
+                printf("%s",buffer);
+            }else if(output_flag==APPEND){
+                f_write(output_file,buffer,1);
+            }else if(output_flag==WRITE){
+                f_write(output_file,buffer,1);
+            }
+        }
         f_close(file);
     }
+    f_close(output_file);
+    return;
 }
 
 void pwd_command(){
@@ -168,13 +261,9 @@ void rmdir_command(char *args[MAX_INPUT_SIZE]){
     if(args[1] ==NULL){
         strcat(content,"rmdir: missing operand\nTry 'rmdir --help' for more information.\n");
     }else if(strcmp(args[1],"--help")==0){
-        strcat(content,"Usage: rmdir [OPTION]... DIRECTORY...\nCreate the DIRECTORY(ies), if they do not already exist.\n");
+        strcat(content,"Usage: rmdir DIRECTORY...\nRemove the DIRECTORY(ies), if they exist.\n");
     }else{
         int i = 1;
-        if(strcmp(args[1],"-r")==0){
-            i=2;
-            flag = 1;
-        }
         for(;i<MAX_INPUT_SIZE;i++){
             if(args[i]==NULL){return;}
             f_rmdir(args[i],flag);
@@ -192,8 +281,8 @@ void cd_command(char *arg){
     struct dirent* handle = f_opendir(arg);
     if(handle!=NULL){
         current_direct->inode = handle->inode;
-        current_direct->offset = handle->inode;
-        current_direct->type = handle->inode;
+        current_direct->offset = handle->offset;
+        current_direct->type = handle->type;
         strcpy(current_direct->name,handle->name);
     }
     f_closedir(handle);
@@ -201,6 +290,7 @@ void cd_command(char *arg){
 
 // parses and executes the given command line using a child process
 void execute_command(char *command_line) {
+    //printf("Current dirent: inode: %d, name: %s\n",current_direct->inode,current_direct->name);
     int run_in_background = 0;
     
     // check for exit command
@@ -244,9 +334,9 @@ void execute_command(char *command_line) {
     args[arg_count] = NULL;
 
     // check if need to redirect
-    
-    int output_flag = -1;
+    output_flag = -1;
     char* output;
+    char* input = NULL;
     int new_i = 0;
     char *new_args[MAX_INPUT_SIZE];
     for(int i=0;i<arg_count;i++){
@@ -264,6 +354,13 @@ void execute_command(char *command_line) {
             output = (char*) malloc(len+1);
             strcpy(output, args[i]);
             output[len]='\0';
+        }else if(strcmp("<",args[i])==0){
+            input_flag = 1;
+            i = i+1;
+            int len = strlen(args[i]);
+            input = (char*)malloc(len+1);
+            strcpy(input,args[i]);
+            input[len]='\0';
         }else if(args[i][0]=='>'&&args[i][1]=='>'){
             output_flag = APPEND;
             int len = strlen(args[i]);
@@ -276,7 +373,15 @@ void execute_command(char *command_line) {
             output = (char*) malloc(len);
             strcpy(output, args[i]+1);
             output[len]='\0';
-        }else{
+        }
+        else if(args[i][0]=='<'){
+            input_flag = 1;
+            int len = strlen(args[i]);
+            input = (char*) malloc(len);
+            strcpy(input, args[i]+1);
+            input[len]='\0';
+        }
+        else{
             new_args[new_i] = args[i];
             new_i++;
         }
@@ -284,6 +389,30 @@ void execute_command(char *command_line) {
     new_args[new_i] = NULL;
     memset(content, '\0', sizeof(content));
 
+    // implement input redirection
+    if(input_flag==1){
+        if(new_args[0]==NULL){free(input); return;}
+        File* input_file = f_open(input,"r");
+       
+        if(input_file!=NULL){
+            char input_text[1024];
+            f_read(input_file,input_text,1024);
+            // parse command line into command and arguments
+            char *token = strtok(input_text, DELIMITERS);
+            
+            // check for empty command
+            if (token == NULL) {
+                return;
+            }
+            // tokenize input
+            while (token != NULL) {
+                new_args[new_i++] = token;
+                token = strtok(NULL, DELIMITERS);
+            }
+            new_args[new_i] = NULL;
+            f_close(input_file);
+        }
+    }
     // implement jobs command
     if (strcmp(new_args[0], "jobs") == 0){
         printJobs(job_list);
@@ -302,8 +431,16 @@ void execute_command(char *command_line) {
         if(output_flag==-1){output_flag=PRINT;}
     }
     else if(strcmp(new_args[0],"cat") ==0&&new_args[1]!=NULL){
-        cat_command(new_args);
         if(output_flag==-1){output_flag=PRINT;}
+        cat_command(new_args,output);
+        if(output_flag!=PRINT){free(output);}
+        return;
+    }
+    else if(strcmp(new_args[0],"more") ==0&&new_args[1]!=NULL){
+        if(output_flag==-1){output_flag=PRINT;}
+        more_command(new_args,output);
+        if(output_flag!=PRINT){free(output);}
+        return;
     }
     else if (strcmp(new_args[0], "chmod") == 0) {
         chmod_command(new_args);

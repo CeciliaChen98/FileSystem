@@ -91,7 +91,7 @@ void f_path(char* path);
 
 int f_stat(char* filename);
 
-int f_delete(char* filename);
+int f_remove(char* filename);
 
 struct dirent* f_opendir(char* directory);
 

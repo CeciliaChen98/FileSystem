@@ -657,6 +657,9 @@ static struct Tokenizer* tokenize(char* arg){
 int disk_open(char *diskname){
     // open the disk image
 	FILE* file = fopen(diskname,"r+b");
+    if (file == NULL) {
+        printf("Disk not found. Please run ./format diskimage to create a disk.\n");
+    }
     diskimage = file;
 
     sb = (struct Superblock*)malloc(512);
@@ -983,7 +986,7 @@ static void clearDirect(struct dirent* direct){
 }
 
 int f_rmdir(char* path_name, int flag) {
-
+    // flag = 0: only remove direnctory that is empty
     if (path_name == NULL) {
         printf("Invalid path name\n");
         return -1;
@@ -1137,30 +1140,40 @@ int f_read(File *file, void* buffer, int num){
     if(file->mode == APPEND || file->mode == WRITE){return -1;}
     struct inode* inode = getInode(file->inode);
 	int read_num = 0;
+    int remained_bytes = inode->size-(file->block_index*block_size+file->position);
     // read content
     while(read_num<num){
-        int need_bytes = block_size - file->position;
+        int need_bytes = num - read_num;
+        int flag = 0;
         // get to the current position of the file according to block_index and position
         char* data = appendPosition(inode,file->block_index,file->position,0);
 	    // if there is no more data to read
 	    if(data==NULL){return read_num;}
-        
+        if(need_bytes>(block_size-file->position)){
+            flag = 1;
+            need_bytes = block_size-file->position;
+        }
         // no enough bytes to read; the last time to read
-        if(inode->size-(file->block_index*block_size+file->position)<need_bytes){
-            need_bytes = inode->size-(file->block_index*block_size+file->position);
-            
-            file->position += need_bytes;
+        if(need_bytes>remained_bytes){
+            need_bytes = remained_bytes;
+            file->position+=need_bytes;
+            if(need_bytes==0){return read_num;}
             memcpy((char*)buffer+read_num,data,need_bytes);
             read_num += need_bytes;
             return read_num;
-        }else{
-            // update position
-            file->position = 0;
-            file->block_index++;
         }
-    
+        if(flag==1){
+            file->block_index ++;
+            file->position = 0;
+        }else{
+            file->position+=need_bytes;
+        }
+        //printf("need_bytes:%d, read_num:%d, remained:%d\n",need_bytes,read_num,remained_bytes);
         memcpy((char*)buffer+read_num,data,need_bytes);
         read_num += need_bytes;
+        remained_bytes -= need_bytes;
+        //printf("need_bytes:%d, read_num:%d, remained:%d\n",need_bytes,read_num,remained_bytes);
+        //printf("\n");
     }
     return read_num;
 }
@@ -1301,7 +1314,7 @@ int f_seek(File* file, int num, int mode){
     return 1;
 }
 
-int f_delete(char* filename){
+int f_remove(char* filename){
     if(filename[strlen(filename-1)]=='/'){
         return -1;
     }

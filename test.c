@@ -132,8 +132,8 @@ int main(int argc, char* argv[]){
         printf("Error when checking status of file test.txt\n");
     }
 
-    printf("\nTesting f_delete\n");
-    if(f_delete("test.txt")==-1){
+    printf("\nTesting f_remove\n");
+    if(f_remove("test.txt")==-1){
         printf("Error when removing test.txt.\n");
     }
 
