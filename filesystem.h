@@ -24,6 +24,12 @@ enum Permission {
     RWX = 7, // all allow
 };
 
+struct User{
+    char* username;
+    int uid;
+    char* password;
+};
+
 struct Superblock{
     int size; 		/* size of data block: 512 */
     int inode_offset; 	/* offset of inode region */
@@ -40,6 +46,7 @@ struct inode{
 	int parent;	/* if the current vnode is not in use, 
     we will use parent to point to the next free inode */
   	int nlink; 		/* number of links to this file */
+    int uid;    /*user id*/
     int size; 		/* numer of bytes in file */
    	int mtime; 		/* modification time */
    	int dblocks[N_DBLOCKS]; /* pointers to data blocks */

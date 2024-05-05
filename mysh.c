@@ -234,6 +234,7 @@ void cat_command(char *args[MAX_INPUT_SIZE],char* output){
     }
     for(int i=1;i<MAX_INPUT_SIZE;i++){
         if(args[i]==NULL){return;}
+        printf("args[%d]: %s\n",i,args[i]);
         File* file = f_open(args[i],"r");
         if(file==NULL){return;}
         while(f_read(file,buffer,1)==1){
@@ -335,6 +336,7 @@ void execute_command(char *command_line) {
 
     // check if need to redirect
     output_flag = -1;
+    input_flag = -1;
     char* output;
     char* input = NULL;
     int new_i = 0;
@@ -346,40 +348,40 @@ void execute_command(char *command_line) {
             int len = strlen(args[i]);
             output = (char*) malloc(len+1);
             strcpy(output, args[i]);
-            output[len]='\0';
+            //output[len]='\0';
         }else if(strcmp(">",args[i])==0){
             output_flag = WRITE;
             i = i+1;
             int len = strlen(args[i]);
             output = (char*) malloc(len+1);
             strcpy(output, args[i]);
-            output[len]='\0';
+            //output[len]='\0';
         }else if(strcmp("<",args[i])==0){
             input_flag = 1;
             i = i+1;
             int len = strlen(args[i]);
             input = (char*)malloc(len+1);
             strcpy(input,args[i]);
-            input[len]='\0';
+            //input[len]='\0';
         }else if(args[i][0]=='>'&&args[i][1]=='>'){
             output_flag = APPEND;
             int len = strlen(args[i]);
             output = (char*) malloc(len);
             strcpy(output, args[i]+1);
-            output[len]='\0';
+            //output[len]='\0';
         }else if(args[i][0]=='>'){
             output_flag = WRITE;
             int len = strlen(args[i]);
             output = (char*) malloc(len);
             strcpy(output, args[i]+1);
-            output[len]='\0';
+            //output[len]='\0';
         }
         else if(args[i][0]=='<'){
             input_flag = 1;
             int len = strlen(args[i]);
             input = (char*) malloc(len);
             strcpy(input, args[i]+1);
-            input[len]='\0';
+            //input[len]='\0';
         }
         else{
             new_args[new_i] = args[i];
@@ -411,6 +413,7 @@ void execute_command(char *command_line) {
             }
             new_args[new_i] = NULL;
             f_close(input_file);
+            free(input);
         }
     }
     // implement jobs command

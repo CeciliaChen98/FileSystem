@@ -10,8 +10,9 @@
 #define DIRECTORY_TYPE 1
 #define MAX_INPUT_SIZE 64
 
-int inode_num;
-int data_num;
+static int inode_num;
+static int data_num;
+static struct User* current_user;
 
 enum Mode {
     None = -1,
@@ -154,71 +155,6 @@ static void cleaninode(struct inode* inode, int all) {
     inode->mtime = time(NULL);        // Reset modification time
     inode->nlink = 0;        // Reset number of links
 }
-
-/*static struct dirent* findDirentByIndex(struct inode inode, int INDEX) {
-    int read_num = 0;
-    int count = 0;
-
-    // Direct blocks
-    for (int i = 0; i < N_DBLOCKS && read_num < inode.size; i++) {
-        char* data = getData(inode.dblocks[i]);
-        for (int block_num = 0; block_num < block_size; block_num += sizeof(struct dirent)) {
-            if (read_num >= inode.size) return NULL;
-
-            struct dirent* cur_dirent = (struct dirent*)(data + block_num);
-            if (cur_dirent->type == DIRECTORY_TYPE && strcmp(cur_dirent->name, ".") != 0&& strcmp(cur_dirent->name, "..") != 0) {
-                if (count == INDEX) {
-                    return cur_dirent;
-                }
-                count++;
-            }
-            read_num += sizeof(struct dirent);
-        }
-    }
-
-    // Indirect blocks
-    for (int i = 0; i < N_IBLOCKS && read_num < inode.size; i++) {
-        int* index_data = (int*)getData(inode.iblocks[i]);
-        for (int index = 0; index < block_size / sizeof(int); index++) {
-            char* data = getData(index_data[index]);
-            for (int block_num = 0; block_num < block_size; block_num += sizeof(struct dirent)) {
-                if (read_num >= inode.size) return NULL;
-
-                struct dirent* cur_dirent = (struct dirent*)(data + block_num);
-                if (cur_dirent->type == DIRECTORY_TYPE) {
-                    if (count == INDEX) {
-                        return cur_dirent;
-                    }
-                    count++;
-                }
-                read_num += sizeof(struct dirent);
-            }
-        }
-    }
-
-    // Doubly indirect blocks
-    int* doubly_indirect = (int*)getData(inode.i2block);
-    for (int d_index = 0; d_index < block_size / sizeof(int) && read_num < inode.size; d_index++) {
-        int* index_data = (int*)getData(doubly_indirect[d_index]);
-        for (int index = 0; index < block_size / sizeof(int); index++) {
-            char* data = getData(index_data[index]);
-            for (int block_num = 0; block_num < block_size; block_num += sizeof(struct dirent)) {
-                if (read_num >= inode.size) return NULL;
-
-                struct dirent* cur_dirent = (struct dirent*)(data + block_num);
-                if (cur_dirent->type == DIRECTORY_TYPE) {
-                    if (count == INDEX) {
-                        return cur_dirent;
-                    }
-                    count++;
-                }
-                read_num += sizeof(struct dirent);
-            }
-        }
-    }
-
-    return NULL;  // If no dirent was found at the specified index
-}*/
 
 static struct dirent* findAllByIndex(struct inode inode, int INDEX) {
     int read_num = 0;
@@ -747,7 +683,7 @@ int disk_close(){
 
 File* f_open(char* filename, char* mode){
 
-    if(filename[strlen(filename-1)]=='/'){
+    if(filename[strlen(filename)-1]=='/'){
         return NULL;
     }
 	// do the path standardizing and permission check
