@@ -25,9 +25,9 @@ enum Permission {
 };
 
 struct User{
-    char* username;
+    char username[64];
     int uid;
-    char* password;
+    char password[64];
 };
 
 struct Superblock{

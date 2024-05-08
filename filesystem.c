@@ -606,7 +606,6 @@ int f_userAuthen(char* username, char* password) {
 
             for (int j = 0; j < block_size; j += sizeof(struct User)) {
                 struct User* user = (struct User*)(data + j);
-                printf("User: %s\n", user->username);
                 if (user->uid == -1) {
                     break;  // Stop processing this block if sentinel value found
                 }
@@ -623,7 +622,6 @@ int f_userAuthen(char* username, char* password) {
             }
         }
     }
-    printf("User %s is not authenticated\n", username);
     return -1; // Authentication failed
 }
 

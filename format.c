@@ -17,7 +17,7 @@
 #define SUPERUSER 0
 
 void create_disk_image(const char* file_name, int size_mb) {
-    FILE* file = fopen(file_name, "wb");
+    FILE* file = fopen(file_name, "r+");
     if (!file) {
         perror("Failed to open file");
         exit(EXIT_FAILURE);
