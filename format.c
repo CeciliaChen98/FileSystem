@@ -267,11 +267,6 @@ void print_disk_contents(const char* file_name) {
     fseek(file, (sb.data_offset+1) * BLOCK_SIZE, SEEK_SET);
     struct dirent de;
     struct User user;
-    char* block = malloc(BLOCK_SIZE);
-    if (fread(block, BLOCK_SIZE, 1, file) == 1) {
-        
-        printf("  Entry: %s, Inode: %d, Type: %d\n", de.name, de.inode, de.type);
-    }
     if (fread(&user, sizeof(struct User), 1, file) == 1) {
         printf("User: username: %s, userid: %d, password: %s\n", user.username, user.uid, user.password);
     }
