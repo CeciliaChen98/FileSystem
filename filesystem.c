@@ -12,7 +12,7 @@
 
 static int inode_num;
 static int data_num;
-//static struct User* current_user;
+static struct User* current_user;
 
 enum Mode {
     None = -1,
@@ -37,7 +37,13 @@ static struct inode* getInode(int index){
 
 int f_changeMod(int inode, int permission) {
     struct inode* changeInode = getInode(inode);
+    int creatorid = changeInode->uid;
+    if (creatorid != current_user->uid) {
+        printf("You do not have permission to change the mode of this file\n");
+        return -1;
+    }
     if (changeInode == NULL || (permission < 0 && permission > 7)) {
+        printf("Invalid inode or permission\n");
         return -1;
     } else {
         changeInode->permissions = permission;

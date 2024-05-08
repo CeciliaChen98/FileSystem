@@ -116,10 +116,7 @@ void chmod_command(char *args[MAX_INPUT_SIZE]) {
             if (file == NULL){
                 printf("%s is not a valid file path\n", args[i]);
             } else{
-                int result = f_changeMod(file->inode, permission);
-                if (result == -1) {
-                    printf("Error when changing permission\n");
-                }
+                f_changeMod(file->inode, permission);
                 f_close(file);
             }
         }
@@ -234,7 +231,7 @@ void cat_command(char *args[MAX_INPUT_SIZE],char* output){
     }
     for(int i=1;i<MAX_INPUT_SIZE;i++){
         if(args[i]==NULL){return;}
-        printf("args[%d]: %s\n",i,args[i]);
+        //printf("args[%d]: %s\n",i,args[i]);
         File* file = f_open(args[i],"r");
         if(file==NULL){return;}
         while(f_read(file,buffer,1)==1){
