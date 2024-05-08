@@ -35,6 +35,11 @@ static struct inode* getInode(int index){
     return inode_data + index;
 }
 
+
+static char* getData(int index){
+    return (char*)block_data + block_size * index; 
+}
+
 int f_changeMod(int inode, int permission) {
     struct inode* changeInode = getInode(inode);
     int creatorid = changeInode->uid;
@@ -52,9 +57,6 @@ int f_changeMod(int inode, int permission) {
     }
 }
 
-static char* getData(int index){
-    return (char*)block_data + block_size * index; 
-}
 
 void freeBlock(int blockindex) {
     memset(getData(blockindex),0,block_size);
@@ -595,6 +597,36 @@ static struct Tokenizer* tokenize(char* arg){
     return path;
 }
 
+// Function to authenticate user directly from data blocks
+int f_userAuthen(char* username, char* password) {
+    for (int i = 0; i < N_DBLOCKS; i++) {
+        if (user_inode->dblocks[i] != 0 || (i == 0 && user_inode->dblocks[i] == 0)) {
+            char* data = getData(user_inode->dblocks[i]);
+            if (!data) continue; // Handle NULL data
+
+            for (int j = 0; j < block_size; j += sizeof(struct User)) {
+                struct User* user = (struct User*)(data + j);
+                printf("User: %s\n", user->username);
+                if (user->uid == -1) {
+                    break;  // Stop processing this block if sentinel value found
+                }
+
+                // Perform authentication check directly
+                if (strcmp(user->username, username) == 0 && strcmp(user->password, password) == 0) {
+                    printf("User %s has been authenticated\n", username);
+                    current_user = malloc(sizeof(struct User));
+                    strcpy(current_user->username, username);
+                    strcpy(current_user->password, password);
+                    current_user->uid = user->uid;
+                    return 0; // Authentication successful
+                }
+            }
+        }
+    }
+    printf("User %s is not authenticated\n", username);
+    return -1; // Authentication failed
+}
+
 
 int disk_open(char *diskname){
     // open the disk image
@@ -604,10 +636,23 @@ int disk_open(char *diskname){
     }
     diskimage = file;
 
-    sb = (struct Superblock*)malloc(512);
-    if(fread(sb,512,1,diskimage) == 0){
+    sb = (struct Superblock*)malloc(sizeof(struct Superblock));
+    if(fread(sb,sizeof(struct Superblock),1,diskimage) == 0){
         printf("Can't read superblock\n");
         return 0;
+    }
+
+    // read the user inode
+    user_inode = (struct inode*)malloc(sizeof(struct inode));
+    if(fread(user_inode,sizeof(struct inode),1,diskimage) <1){
+        printf("Can't read user inode\n");
+        return 0;
+    }
+
+    if (fseek(diskimage, 512, SEEK_SET) != 0) {
+        perror("Error seeking file");
+        fclose(diskimage); // Close the file
+        return -1; // Exit program with an error
     }
     
     block_size = sb->size;
@@ -642,7 +687,7 @@ int disk_open(char *diskname){
         fclose(diskimage); // Close the file
         return 1; // Exit program with an error
     }
-    fseek(diskimage,512+inode_num,SEEK_SET);
+    fseek(diskimage,512+(sb->data_offset*512),SEEK_SET);
     //printf("num of bytes %d\n",num_bytes); //好像少了128bytes？
 
     data_num = num_bytes-512-inode_num;
@@ -658,6 +703,7 @@ int disk_open(char *diskname){
 int disk_close(){
     free(current_direct);
     free(root_direct);
+    free(user_inode);
     fseek(diskimage,0,SEEK_SET);
     if(fwrite(sb,512,1,diskimage)<1){
         free(sb);

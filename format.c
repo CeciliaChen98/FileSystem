@@ -28,7 +28,7 @@ void create_disk_image(const char* file_name, int size_mb) {
     fwrite(&sb, sizeof(sb), 1, file);
 
     // Initialize inode-1 to store the user info
-    struct inode user_inode = {-1, FILETYPE, RWx, -1, 1, SUPERUSER, sizeof(struct User), time(NULL), {0}, {0}, 0};
+    struct inode user_inode = {-1, FILETYPE, RWx, -1, 1, SUPERUSER, 3*sizeof(struct User), time(NULL), {0}, {0}, 0};
     if (fwrite(&user_inode, sizeof(user_inode), 1, file) != 1) {
         printf("Error when writing userinode.\n");
     }
@@ -95,7 +95,6 @@ void create_disk_image(const char* file_name, int size_mb) {
     the village than ever before.\n";
 
     int more_size = sizeof(more);
-    printf("more size: %d\n", more_size);
     struct inode layertwo_more_inode = {5,FILETYPE, RWx, 3, 1, SUPERUSER, more_size, time(NULL), {6, 7,8,9,10}, {0}, 0};
     if (fwrite(&layertwo_more_inode, sizeof(layertwo_more_inode), 1, file) != 1) {
         printf("Error when writing layertwo_more_inode.\n");
@@ -135,8 +134,16 @@ void create_disk_image(const char* file_name, int size_mb) {
         .uid = 1,
         .password = "12345678"
     };
+
+    struct User endUser = {
+        .username = "null",
+        .uid = -1,
+        .password = "null"
+    };
+
     fwrite(&superUser, sizeof(struct User), 1, file);
     fwrite(&normalUser, sizeof(struct User), 1, file);
+    fwrite(&endUser, sizeof(struct User), 1, file);
 
     if (fseek(file, data_block_offset + BLOCK_SIZE, SEEK_SET) != 0) {
         perror("Error positioning file pointer to data region");
@@ -260,6 +267,11 @@ void print_disk_contents(const char* file_name) {
     fseek(file, (sb.data_offset+1) * BLOCK_SIZE, SEEK_SET);
     struct dirent de;
     struct User user;
+    char* block = malloc(BLOCK_SIZE);
+    if (fread(block, BLOCK_SIZE, 1, file) == 1) {
+        
+        printf("  Entry: %s, Inode: %d, Type: %d\n", de.name, de.inode, de.type);
+    }
     if (fread(&user, sizeof(struct User), 1, file) == 1) {
         printf("User: username: %s, userid: %d, password: %s\n", user.username, user.uid, user.password);
     }

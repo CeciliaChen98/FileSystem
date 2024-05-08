@@ -36,7 +36,6 @@ struct Superblock{
     int data_offset; 		/* offset of data block region */
     int free_inode; 		/* Head of free inode list */
     int free_block; 		/*Head of free block list */
-    //char padding[512 - 5*sizeof(int)];
 };
 
 struct inode{
@@ -70,6 +69,7 @@ struct dirent{
 };
 
 struct Superblock* sb;
+struct inode* user_inode;
 struct inode* inode_data; 
 char* block_data;
 int block_size;
@@ -111,5 +111,7 @@ struct dirent* f_mkdir(char* path_name);
 int f_rmdir(char* path_name,int flag);
 
 int f_changeMod(int inode, int permission);
+
+int f_userAuthen(char* username, char* password);
 
 #endif

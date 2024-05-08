@@ -756,11 +756,30 @@ void updateJob(){
 	}
 }
 
+int verifyuser(char* username, char* password) {
+    return f_userAuthen(username, password);
+}
+
 int main() {
     if(disk_open("DISK")!=1){
         printf("Cannot load DISK\n");
         return -1;
     }
+
+    //perform user authentication
+    char *username = readline("Username: ");
+    char *password = readline("Password: ");  
+
+    if (verifyuser(username, password) != 0) {
+        printf("Wrong user or password!\n");
+        free(username);  // Always free memory allocated by readline
+        free(password);
+        disk_close();
+        return -1;
+    }
+    free(username);
+    free(password);
+
     char *input = (char *)NULL;
 
     // ignore useless signals
