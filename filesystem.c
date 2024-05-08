@@ -35,7 +35,6 @@ static struct inode* getInode(int index){
     return inode_data + index;
 }
 
-
 static char* getData(int index){
     return (char*)block_data + block_size * index; 
 }
@@ -393,6 +392,7 @@ static struct dirent* createFile(struct dirent* cur_dirent, char* name){
     // modify the inode to store all the information
     file_inode -> type = FILE_TYPE;
     file_inode -> permissions = RWx;
+    file_inode -> uid = current_user->uid;
     file_inode -> parent = cur_dirent->inode;
     file_inode -> nlink = 0;
     file_inode -> size = 0;
@@ -613,7 +613,6 @@ int f_userAuthen(char* username, char* password) {
                 // Perform authentication check directly
                 if (strcmp(user->username, username) == 0 && strcmp(user->password, password) == 0) {
                     printf("User %s has been authenticated\n", username);
-                    current_user = malloc(sizeof(struct User));
                     strcpy(current_user->username, username);
                     strcpy(current_user->password, password);
                     current_user->uid = user->uid;
@@ -631,12 +630,15 @@ int disk_open(char *diskname){
 	FILE* file = fopen(diskname,"r+b");
     if (file == NULL) {
         printf("Disk not found. Please run ./format diskimage to create a disk.\n");
+        return 0;
     }
     diskimage = file;
 
     sb = (struct Superblock*)malloc(sizeof(struct Superblock));
     if(fread(sb,sizeof(struct Superblock),1,diskimage) == 0){
         printf("Can't read superblock\n");
+        free(sb);
+        fclose(diskimage);
         return 0;
     }
 
@@ -644,11 +646,15 @@ int disk_open(char *diskname){
     user_inode = (struct inode*)malloc(sizeof(struct inode));
     if(fread(user_inode,sizeof(struct inode),1,diskimage) <1){
         printf("Can't read user inode\n");
+        free(sb);free(user_inode);
+        fclose(diskimage);
         return 0;
     }
+    current_user = malloc(sizeof(struct User));
 
     if (fseek(diskimage, 512, SEEK_SET) != 0) {
         perror("Error seeking file");
+        free(sb); free(user_inode); free(current_user);
         fclose(diskimage); // Close the file
         return -1; // Exit program with an error
     }
@@ -701,31 +707,38 @@ int disk_open(char *diskname){
 int disk_close(){
     free(current_direct);
     free(root_direct);
-    free(user_inode);
+    free(current_user);
     fseek(diskimage,0,SEEK_SET);
-    if(fwrite(sb,512,1,diskimage)<1){
+    if(fwrite(sb,sizeof(struct Superblock),1,diskimage)<1){
         free(sb);
-        free(inode_data);
-        free(block_data);
-        fclose(diskimage);
-        return 0;
-    }
-    if(fwrite(inode_data,inode_num,1,diskimage)<1){
-        free(sb);
-        free(inode_data);
-        free(block_data);
-        fclose(diskimage);
-        return 0;
-    }
-    if(fwrite(block_data,data_num,1,diskimage)<1){
-        free(sb);
+        free(user_inode);
         free(inode_data);
         free(block_data);
         fclose(diskimage);
         return 0;
     }
     free(sb);
+    if(fwrite(user_inode,sizeof(struct inode),1,diskimage)<1){
+        free(user_inode);
+        free(inode_data);
+        free(block_data);
+        fclose(diskimage);
+        return 0;
+    }
+    free(user_inode);
+    fseek(diskimage,512,SEEK_SET);
+    if(fwrite(inode_data,inode_num,1,diskimage)<1){
+        free(inode_data);
+        free(block_data);
+        fclose(diskimage);
+        return 0;
+    }
     free(inode_data);
+    if(fwrite(block_data,data_num,1,diskimage)<1){
+        free(block_data);
+        fclose(diskimage);
+        return 0;
+    }
     free(block_data);
     fclose(diskimage);
     return 1;
@@ -771,7 +784,9 @@ File* f_open(char* filename, char* mode){
             freeTokenizer(path);
             return NULL;
         }
-        if(permission!=Rwx&&permission!=RWx&&permission!=RWX&&permission!=RwX){
+        if(current_user->uid ==0){
+            //superuser
+        }else if(permission!=Rwx&&permission!=RWx&&permission!=RWX&&permission!=RwX){
             printf("Wrong permission\n");
             freeTokenizer(path);
             return NULL;
@@ -784,7 +799,9 @@ File* f_open(char* filename, char* mode){
             freeTokenizer(path);
             return NULL;
         }
-        if(permission!=RWX&&permission!=RWx){
+        if(current_user->uid ==0){
+            //superuser
+        }else if(permission!=RWX&&permission!=RWx){
             printf("Wrong permission\n");
             freeTokenizer(path);
             return NULL;
@@ -826,7 +843,8 @@ File* f_open(char* filename, char* mode){
         if(target_file==NULL){
             file->inode = createFile(target,name)->inode;
         }else{
-            if((int_mode==APPEND&&(permission==rWx||permission==rWX||permission==RWX||permission==RWx))||
+            if(current_user->uid==0||   //superuser
+            (int_mode==APPEND&&(permission==rWx||permission==rWX||permission==RWX||permission==RWx))||
             (int_mode==APPEND_READ&&(permission==RWx||permission==RWX))){
                 file->inode = target_file->inode;
                 int size = getInode(file->inode)->size;
@@ -987,7 +1005,7 @@ int f_rmdir(char* path_name, int flag) {
 
     for (int count = 0; count < path->length; count++) {
         if (cur == NULL) {
-            printf("No such file or directory\n");
+            printf("failed to remove 's': No such file or directory\n",path_name);
             freeTokenizer(path);
             return -1;
         }
@@ -996,7 +1014,7 @@ int f_rmdir(char* path_name, int flag) {
             if (strcmp(cur->name, path->tokens[count]) != 0) {
                 cur = findDirent(inode_data[cur->inode], path->tokens[count]);
                 if (cur == NULL) {
-                    printf("No such file or directory\n");
+                    printf("failed to remove 's': No such file or directory\n",path_name);
                     freeTokenizer(path);
                     return -1;
                 }
@@ -1009,7 +1027,7 @@ int f_rmdir(char* path_name, int flag) {
         } else {
             cur = findDirent(inode_data[cur->inode], path->tokens[count]);
             if (cur->type==FILE_TYPE){
-                printf("No such file or directory\n");
+                printf("failed to remove '%s': No adirectory\n",cur->name);
                 freeTokenizer(path);
                 return -1;
             }
@@ -1021,11 +1039,16 @@ int f_rmdir(char* path_name, int flag) {
     // At this point, 'cur' should be the directory to remove
     struct inode* curinode = getInode(cur->inode);
     struct inode* parent = getInode(curinode->parent);
+    // check permissioin
+    if(current_user->uid!=0&&current_user->uid!=curinode->uid){
+        printf("cannot remove '%s': Permission denied\n",cur->name);
+        return -1;
+    }
     if(flag==1){
         clearDirect(cur);
     }else{
         if (curinode->size != 2*sizeof(struct dirent)) {
-            printf("Can't remove a directory that is not empty.\n");
+            printf("failed to remove '%s': Directory not empty\n",cur->name);
             return -1;
         }
         cleaninode(curinode,1);
@@ -1220,6 +1243,7 @@ static struct dirent* createDirectory(struct dirent* cur_dirent, char* name){
     file_inode -> permissions = RWx;
     file_inode -> parent = cur_dirent->inode;
     file_inode -> nlink = 0;
+    file_inode -> uid = current_user->uid;
     file_inode -> size = 0;
     file_inode -> mtime = time(NULL);    
 
@@ -1337,12 +1361,12 @@ int f_remove(char* filename){
         return 0;
     }
     
-    
     struct inode* target_inode = getInode(target_file->inode);
     freeTokenizer(path);
     
-    // can't delete it if it is opened 
-    if(target_inode->nlink!=0){
+    // check permission  
+    if(current_user->uid!=0&&current_user->uid!=target_inode->uid){
+        printf("cannot remove '%s': Permission denied\n",name);
         return 0;
     }
     cleaninode(target_inode,1);

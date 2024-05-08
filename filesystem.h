@@ -27,7 +27,7 @@ enum Permission {
 struct User{
     char username[64];
     int uid;
-    char password[64];
+    char password[56];
 };
 
 struct Superblock{
@@ -59,6 +59,7 @@ typedef struct open_file{
     int block_index; /* index of the block inside inode */
     int position;	/* offset inside the data block */
     int mode;	/* read/write */
+    int count; 
 }File;
 
 struct dirent{
