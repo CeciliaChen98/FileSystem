@@ -12,7 +12,7 @@
 
 static int inode_num;
 static int data_num;
-static struct User* current_user;
+//static struct User* current_user;
 
 enum Mode {
     None = -1,

@@ -760,8 +760,8 @@ void updateJob(){
 }
 
 int main() {
-    if(disk_open("diskimage")!=1){
-        printf("Cannot load diskimage\n");
+    if(disk_open("DISK")!=1){
+        printf("Cannot load DISK\n");
         return -1;
     }
     char *input = (char *)NULL;
