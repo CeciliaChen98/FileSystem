@@ -62,6 +62,10 @@ typedef struct open_file{
     int count; 
 }File;
 
+struct Filetable{
+    File* filetable[64];
+};
+
 struct dirent{
 	int inode;
 	int type;
@@ -114,5 +118,7 @@ int f_rmdir(char* path_name,int flag);
 int f_changeMod(int inode, int permission);
 
 int f_userAuthen(char* username, char* password);
+
+void ls_helper(char* content,struct dirent* direct,int flag);
 
 #endif

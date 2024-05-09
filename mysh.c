@@ -125,22 +125,42 @@ void chmod_command(char *args[MAX_INPUT_SIZE]) {
 }
 
 void ls_command(char *args[MAX_INPUT_SIZE]){
+    int flag = 0;
+    int none = 0;
+    struct dirent* cur;
+    int i = 1;
     if(args[1]==NULL){
-        struct dirent* cur = f_opendir(".");
+    }else if(strcmp(args[1],"-l")==0){
+        flag = 1;
+        i = 2;
+    }else if(strcmp(args[1],"-F")==0){
+        flag = 2;
+        i = 2;
+    }
+    for(;args[i]!=NULL;i++){
+        if(none==1){strcat(content,"\n");}
+        none = 1;
+        cur = f_opendir(args[i]);
+        if(cur==NULL){continue;}
+        strcat(content,args[i]);
+        strcat(content,":\n");
         struct dirent* dirent = f_readdir(cur);
         while(dirent!=NULL){
-            strcat(content,dirent->name);
-            strcat(content,"    ");
+            ls_helper(content,dirent,flag);
             dirent = f_readdir(cur);
         }
-        strcat(content,"\n");
+        if(flag!=1){strcat(content,"\n");}
         f_closedir(cur);
-        return;
     }
-    if(strcmp(args[1],"-l")==0){
-        
-    }else if(strcmp(args[1],"-F")==0){
-
+    if(none==0){
+        cur = f_opendir(".");
+        struct dirent* dirent = f_readdir(cur);
+        while(dirent!=NULL){
+            ls_helper(content,dirent,flag);
+            dirent = f_readdir(cur);
+        }
+        if(flag!=1){strcat(content,"\n");}
+        f_closedir(cur);
     }
 }
 
