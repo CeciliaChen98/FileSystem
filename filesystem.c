@@ -969,6 +969,33 @@ void f_path(char* path) {
     path_recur(path, getInode(current_direct->inode));
 }
 
+void ls_helper(char* content,struct dirent* direct, int flag){
+    struct inode* temp = getInode(direct->inode);
+    if(flag==0){
+        strcat(content,direct->name);
+        strcat(content,"    ");
+    }else if(flag==1){
+        char tempStr[40];
+        if(temp->permissions==0){strcat(content,"--- ");}
+        else if(temp->permissions==Rwx){strcat(content,"r-- ");}
+        else if(temp->permissions==RWx){strcat(content,"rw- ");}
+        else if(temp->permissions==RwX){strcat(content,"r-x ");}
+        else if(temp->permissions==RWX){strcat(content,"rwx ");}
+        else if(temp->permissions==rWx){strcat(content,"-w- ");}
+        else if(temp->permissions==rWX){strcat(content,"-wx ");}
+        else if(temp->permissions==rwX){strcat(content,"--x ");}
+        sprintf(tempStr, " %-3d %-3d %-10d ", temp->nlink,temp->uid,temp->size);
+        //strcat(content,temp->mtime);
+        strcat(content,tempStr);
+        strcat(content,direct->name);
+        strcat(content,"\n");
+    }else{
+        strcat(content,direct->name);
+        if(temp->permissions%2==1){strcat(content,"*");}
+        strcat(content,"    ");
+    }
+}
+
 static void clearDirect(struct dirent* direct){
     struct inode* inode = getInode(direct->inode);
     //printf("Here: inode %d\n",inode->index);
