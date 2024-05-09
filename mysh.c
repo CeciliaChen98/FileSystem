@@ -36,10 +36,10 @@ int input_flag;
 
 void rm_command(char *args[MAX_INPUT_SIZE]){
     if(args[1] ==NULL){
-        strcat(content,"rm: missing operand\nTry 'rm --help' for more information.\n");
+        printf("rm: missing operand\nTry 'rm --help' for more information.\n");
     }else if(strcmp(args[1],"--help")==0){
-        strcat(content,"Usage: rm ... [FILE]...\nRemove (unlink) the FILE(s).\n");
-        strcat(content,"Usage: rm -rf ... [DIRECTORY]...\nRemove (unlink) a empty/non-empty DIRECTORY.\n");
+        printf("Usage: rm ... [FILE]...\nRemove (unlink) the FILE(s).\n");
+        printf("Usage: rm -rf ... [DIRECTORY]...\nRemove (unlink) a empty/non-empty DIRECTORY.\n");
     }else{
         if(strcmp(args[1],"-rf")==0){
             for(int i = 2;i<MAX_INPUT_SIZE;i++){
@@ -166,9 +166,9 @@ void ls_command(char *args[MAX_INPUT_SIZE]){
 
 void mkdir_command(char *args[MAX_INPUT_SIZE]){
     if(args[1]==NULL){
-        strcat(content, "mkdir: missing operand\nTry 'mkdir --help' for more information.\n");
+        printf( "mkdir: missing operand\nTry 'mkdir --help' for more information.\n");
     }else if(strcmp(args[1],"--help")==0){
-        strcat(content, "Usage: mkdir DIRECTORY...\nCreate the DIRECTORY(ies), if they do not already exist.\n");
+        printf("Usage: mkdir DIRECTORY...\nCreate the DIRECTORY(ies), if they do not already exist.\n");
     }else{
         for(int i=1;i<MAX_INPUT_SIZE;i++){
             if(args[i]==NULL){return;}
@@ -190,7 +190,7 @@ int get_terminal_size(int *rows, int *cols) {
 void more_command(char *args[], char* output) {
     int rows, cols;
     if (get_terminal_size(&rows, &cols) != 0) {
-        strcat(content, "more: faults when trying to get the screen size\n");
+        printf("more: faults when trying to get the screen size\n");
         return;
     }
 
@@ -207,9 +207,7 @@ void more_command(char *args[], char* output) {
     for (int i = 1; args[i] != NULL; i++) {
         File *file = f_open(args[i], "r");
         if (file == NULL) {
-            strcat(content, "more: cannot open file ");
-            strcat(content, args[i]);
-            strcat(content, "\n");
+            printf("more: cannot open '%s\n",args[i]);
             continue;
         }
 
@@ -226,7 +224,7 @@ void more_command(char *args[], char* output) {
                 line_count++;
             }
             if (line_count >= rows - 1) {
-                strcat(content, "Press ENTER to continue...");
+                printf("Press ENTER to continue...");
                 while (getchar() != '\n'); // Wait for Enter key
                 line_count = 0; // Reset line count
             }
@@ -313,9 +311,9 @@ void pwd_command(){
 void rmdir_command(char *args[MAX_INPUT_SIZE]){
     int flag = 0;
     if(args[1] ==NULL){
-        strcat(content,"rmdir: missing operand\nTry 'rmdir --help' for more information.\n");
+        printf("rmdir: missing operand\nTry 'rmdir --help' for more information.\n");
     }else if(strcmp(args[1],"--help")==0){
-        strcat(content,"Usage: rmdir DIRECTORY...\nRemove the DIRECTORY(ies), if they exist.\n");
+        printf("Usage: rmdir DIRECTORY...\nRemove the DIRECTORY(ies), if they exist.\n");
     }else{
         int i = 1;
         for(;i<MAX_INPUT_SIZE;i++){
@@ -329,7 +327,7 @@ void cd_command(char *arg){
     if(arg==NULL){
         return;
     }else if(strcmp(arg,"--help")==0){
-        strcat(content,"cd: cd [path_dir]\nChange the shell working directory.\nChange the current directory to DIR.\n");
+        printf("cd: cd [path_dir]\nChange the shell working directory.\nChange the current directory to DIR.\n");
         return;
     }
     struct dirent* handle = f_opendir(arg);
@@ -420,7 +418,7 @@ void execute_command(char *command_line) {
             output_flag = APPEND;
             int len = strlen(args[i]);
             output = (char*) malloc(len);
-            strcpy(output, args[i]+1);
+            strcpy(output, args[i]+2);
             //output[len]='\0';
         }else if(args[i][0]=='>'){
             output_flag = WRITE;
@@ -469,7 +467,7 @@ void execute_command(char *command_line) {
             free(input);
         }
     }
-    //int self_command = 0;
+    int self_command = 0;
     // implement jobs command
     if (strcmp(new_args[0], "jobs") == 0){
         printJobs(job_list);
@@ -513,27 +511,7 @@ void execute_command(char *command_line) {
         rm_command(new_args);
         if(output_flag==-1){output_flag=PRINT;}
     }
-    if(output_flag==WRITE){
-        File* file = f_open(output,"w");
-        f_write(file,content,strlen(content));
-        f_close(file);
-        free(output);
-        return;
-    }
-    else if(output_flag==APPEND){
-        File* file = f_open(output,"a");
-        f_write(file,content,strlen(content));
-        f_close(file);
-        free(output);
-        return;
-    }
-    else if(output_flag==PRINT){
-        printf("%s",content);
-        return;
-    }
-    
-    // implement kill command
-    if (strcmp(args[0], "kill") == 0){
+    else if (strcmp(args[0], "kill") == 0){
         if (args[1] == NULL){
             printf("kill: usage: kill [pid]\n");
             return;
@@ -558,9 +536,8 @@ void execute_command(char *command_line) {
         }
         return;
     }
-
     // implement fg command
-    if (strcmp(args[0], "fg") == 0) {
+    else if (strcmp(args[0], "fg") == 0) {
     struct Job* jobToResume = NULL;
         // if a jobid is provided
         if (args[1] != NULL) {
@@ -645,9 +622,8 @@ void execute_command(char *command_line) {
         }
         return;
     }
-
     // implement bg command
-   if (strcmp(args[0],"bg") == 0) {
+    else if (strcmp(args[0],"bg") == 0) {
         struct Job* jobToResume = NULL;
         // if a jobid is provided
         if (args[1] != NULL) {
@@ -701,59 +677,103 @@ void execute_command(char *command_line) {
         //printf("Resumed job [%d] %s in the background.\n", jobToResume->jobId, jobToResume->command);
         return;
     }
-
+    else{
     // check if the command is ended with '&'
     size_t len = strlen(args[arg_count-2]);
-    if (len > 0 && args[arg_count-2][len - 1] == '&') {
-        run_in_background = 1;
-        args[arg_count-2][len-1] = '\0';
-        if(len==1){args[arg_count-2]='\0';}
-    }
-
-    // start a child process to execute command
-    pid_t pid = fork();
-    
-    if (pid == 0) { // child
-
-        // set ignored signals to default
-        signal(SIGINT,SIG_DFL);
-        signal(SIGTSTP,SIG_DFL);
-        signal(SIGTERM,SIG_DFL);
-        signal(SIGTTIN,SIG_DFL);
-        signal(SIGTTOU,SIG_DFL);
-        signal(SIGQUIT,SIG_DFL);
-
-        if (setpgid(0, 0) == -1) {
-            perror("setpgid");
-            exit(EXIT_FAILURE);
+        if (len > 0 && args[arg_count-2][len - 1] == '&') {
+            run_in_background = 1;
+            args[arg_count-2][len-1] = '\0';
+            if(len==1){args[arg_count-2]='\0';}
         }
         
-        // search PATH and execute the command
-        execvp(args[0], args);  
-        perror("execvp fails"); 
-        exit(EXIT_FAILURE);
+        self_command = 1;
+        // start a child process to execute command
+        pid_t pid = fork();
 
-    } else if (pid > 0){  // parent 
-        addJob(run_in_background, entire_command, pid);
+        if (pid == 0) { // child
+            
+            // set ignored signals to default
+            signal(SIGINT,SIG_DFL);
+            signal(SIGTSTP,SIG_DFL);
+            signal(SIGTERM,SIG_DFL);
+            signal(SIGTTIN,SIG_DFL);
+            signal(SIGTTOU,SIG_DFL);
+            signal(SIGQUIT,SIG_DFL);
 
-        if (setpgid(pid, 0) == -1) {
-            perror("setpgid");
+            if (setpgid(0, 0) == -1) {
+                perror("setpgid");
+                exit(EXIT_FAILURE);
+            }
+
+            FILE* pFile = fopen("temp.txt", "w+");
+            if (pFile == NULL) {
+                perror("fmemopen");
+                return ;
+            }
+
+            // Redirect stdout to the memory stream
+            if (dup2(fileno(pFile), STDOUT_FILENO) == -1) {
+                perror("dup2");
+                fclose(pFile);
+                return ;
+            }
+
+            // search PATH and execute the command
+            execvp(new_args[0], new_args);  
+            perror("execvp fails"); 
+            exit(EXIT_FAILURE);
+
+            // Close the memory stream (flushes the buffer)
+            fclose(pFile);
+
+        } else if (pid > 0){  // parent 
+            addJob(run_in_background, entire_command, pid);
+
+            if (setpgid(pid, 0) == -1) {
+                perror("setpgid");
+                exit(EXIT_FAILURE);
+            }
+            
+            //需要储存terminal信息，把terminal给fg job
+            if (run_in_background){
+                tcsetpgrp(STDIN_FILENO, getpgrp());
+            }else{
+                tcsetpgrp(STDIN_FILENO, pid);
+                // wait for the child to terminate
+                int status;
+                waitpid(pid, &status, WUNTRACED); 
+                tcsetpgrp(STDIN_FILENO, getpgrp());
+            }
+            
+        } else { // bad fork
+            perror("fork fails");
             exit(EXIT_FAILURE);
         }
-        //需要储存terminal信息，把terminal给fg job
-        if (run_in_background){
-            tcsetpgrp(STDIN_FILENO, getpgrp());
-        }else{
-            tcsetpgrp(STDIN_FILENO, pid);
-            // wait for the child to terminate
-            int status;
-            waitpid(pid, &status, WUNTRACED); 
-            tcsetpgrp(STDIN_FILENO, getpgrp());
-        }
-         
-    } else { // bad fork
-        perror("fork fails");
-        exit(EXIT_FAILURE);
+    }
+    
+    if(self_command==1){
+        FILE* temp = fopen("temp.txt","r");
+        fread(content,1,4096,temp);
+        fclose(temp);
+    }
+    if(output_flag==-1){output_flag=PRINT;}
+    if(output_flag==WRITE){
+        File* file = f_open(output,"w");
+        f_write(file,content,strlen(content));
+        f_close(file);
+        free(output);
+        return;
+    }
+    else if(output_flag==APPEND){
+        File* file = f_open(output,"a");
+        f_write(file,content,strlen(content));
+        f_close(file);
+        free(output);
+        return;
+    }
+    else if(output_flag==PRINT){
+        printf("%s",content);
+        return;
     }
 }
 

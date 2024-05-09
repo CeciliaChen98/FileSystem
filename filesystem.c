@@ -824,7 +824,7 @@ File* f_open(char* filename, char* mode){
 
     if(int_mode==READ || int_mode==READ_WRITE){
         if(target_file==NULL){
-            printf("File does not exist\n");
+            printf("%s:No such file or directory\n",filename);
             free(file);
             freeTokenizer(path);
             return NULL;
@@ -886,11 +886,11 @@ struct dirent* f_opendir(char* directory) {
     // Iterate over each token based on the number of tokens
     for (int count = 0; count < path->length; count++) {
         if (cur == NULL) {
-            printf("Path not found\n");
+            printf("%s: Not a directory",directory);
             return NULL;
         }
         if (cur->type == FILE_TYPE){
-            printf("Path not found\n");
+            printf("%s: Not a directory",directory);
             return NULL;
         }
         // Perform directory matching or traversal
@@ -903,10 +903,10 @@ struct dirent* f_opendir(char* directory) {
     }
     freeTokenizer(path);
     if(cur == NULL){
-        printf("Path not found\n");
+        printf("%s: Not a directory",directory);
         return NULL;
     }else if (cur->type == FILE_TYPE){
-        printf("cannot open directory: is a file\n");
+        printf("%s: Not a directory",directory);
     }
     cur->offset = 0;
     // Return the final directory entry found, or NULL if not found
@@ -1320,6 +1320,7 @@ struct dirent* f_mkdir(char* path_name){
     char* name = NULL;
     name = path->tokens[path->length-1];
     struct inode* temp_inode = getInode(target->inode);
+    //check if there is a file with the same name
     if(findDirent(*temp_inode,name)!=NULL){
         printf("cannot create directory '%s': File exists\n",name);
         freeTokenizer(path);return NULL;
