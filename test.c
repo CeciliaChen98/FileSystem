@@ -58,7 +58,7 @@ void print_disk_contents() {
 }
 
 int main(int argc, char* argv[]){
-    if(disk_open("diskimage")!=1){
+    if(disk_open("DISK")!=1){
         printf("Error1\n");
         return -1;
     }

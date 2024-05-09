@@ -47,7 +47,7 @@ void create_disk_image(const char* file_name, int size_mb) {
 
     // Initialize a file inode with fake content
     char file_content[] = "Hello, this is some text in the file.\n";
-    int file_size = sizeof(file_content);
+    int file_size = strlen(file_content);
     struct inode file_inode = {1,FILETYPE, RWx, -1, 1, SUPERUSER, file_size, time(NULL), {2}, {0}, 0};
     if (fwrite(&file_inode, sizeof(file_inode), 1, file) != 1) {
         printf("Error when writing fileinode.\n");

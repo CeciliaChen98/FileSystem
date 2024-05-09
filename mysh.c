@@ -241,32 +241,68 @@ void more_command(char *args[], char* output) {
 }
 
 
-void cat_command(char *args[MAX_INPUT_SIZE],char* output){
+int cat_command(char *args[MAX_INPUT_SIZE],char* output){
     char buffer[1];
-    File *output_file;
-    if(output_flag==APPEND){
-        output_file= f_open(output,"a");
-    }else if(output_flag==WRITE){
-        output_file= f_open(output,"w");
+    File *output_file = NULL;
+    int count = 0;
+
+    if(args[1]==NULL){
+        char *input = (char *)NULL;
+        while(1){
+            // reset or empty input each time
+            if (input){
+                free(input);
+                input = (char *)NULL;
+            }
+            // get STDIN
+            input = readline("");
+            if (!input){
+                printf("\n");
+                break;
+            }
+            if(output_flag==PRINT){
+                printf("%s\n",input);
+            }else{
+                strcat(content,input);
+                strcat(content,"\n");
+            }
+        }
+        if(output_flag==APPEND){
+            output_file= f_open(output,"a");
+            f_write(output_file,content,strlen(content));
+        }else if(output_flag==WRITE){
+            output_file= f_open(output,"w");
+            f_write(output_file,content,strlen(content));
+        }
+        f_close(output_file);
+        return 1;
     }
-    for(int i=1;i<MAX_INPUT_SIZE;i++){
-        if(args[i]==NULL){return;}
+    for(int i=1;args[i]!=NULL;i++){
         //printf("args[%d]: %s\n",i,args[i]);
         File* file = f_open(args[i],"r");
-        if(file==NULL){return;}
+        if(file==NULL){
+            return 0;
+        }
         while(f_read(file,buffer,1)==1){
+            count ++;
             if(output_flag==PRINT){
                 printf("%s",buffer);
-            }else if(output_flag==APPEND){
-                f_write(output_file,buffer,1);
-            }else if(output_flag==WRITE){
-                f_write(output_file,buffer,1);
+            }else{
+                strcat(content,buffer);
             }
         }
         f_close(file);
+        if(output_flag==APPEND){
+            output_file= f_open(output,"a");
+            f_write(output_file,content,count);
+        }else if(output_flag==WRITE){
+            output_file= f_open(output,"w");
+            f_write(output_file,content,count);
+        }
+        f_close(output_file);
+        memset(content, '\0', sizeof(content));
     }
-    f_close(output_file);
-    return;
+    return 1;
 }
 
 void pwd_command(){
@@ -433,6 +469,7 @@ void execute_command(char *command_line) {
             free(input);
         }
     }
+    //int self_command = 0;
     // implement jobs command
     if (strcmp(new_args[0], "jobs") == 0){
         printJobs(job_list);
@@ -450,7 +487,7 @@ void execute_command(char *command_line) {
         cd_command(new_args[1]);
         if(output_flag==-1){output_flag=PRINT;}
     }
-    else if(strcmp(new_args[0],"cat") ==0&&new_args[1]!=NULL){
+    else if(strcmp(new_args[0],"cat") ==0){
         if(output_flag==-1){output_flag=PRINT;}
         cat_command(new_args,output);
         if(output_flag!=PRINT){free(output);}
@@ -675,7 +712,7 @@ void execute_command(char *command_line) {
 
     // start a child process to execute command
     pid_t pid = fork();
-
+    
     if (pid == 0) { // child
 
         // set ignored signals to default
@@ -690,7 +727,7 @@ void execute_command(char *command_line) {
             perror("setpgid");
             exit(EXIT_FAILURE);
         }
-
+        
         // search PATH and execute the command
         execvp(args[0], args);  
         perror("execvp fails"); 

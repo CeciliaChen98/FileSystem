@@ -775,6 +775,7 @@ File* f_open(char* filename, char* mode){
     struct dirent* target_file = findDirent(*temp_inode,name);
     int permission = NONE;
     if(target_file!=NULL){permission = getInode(target_file->inode)->permissions;}
+    
     if(target_file!=NULL){if(target_file->type==DIRECTORY_TYPE){printf("cannot open '%s': is a directory\n",name); return NULL;}}
     // mode
     int int_mode = -1;
@@ -858,7 +859,6 @@ File* f_open(char* filename, char* mode){
             }
         }
     }
-
     getInode(file->inode)->nlink++;
     file->mode = int_mode;
     strcpy(file->name,filename);
@@ -1032,7 +1032,7 @@ int f_rmdir(char* path_name, int flag) {
 
     for (int count = 0; count < path->length; count++) {
         if (cur == NULL) {
-            printf("failed to remove 's': No such file or directory\n",path_name);
+            printf("failed to remove '%s': No such file or directory\n",path_name);
             freeTokenizer(path);
             return -1;
         }
@@ -1041,7 +1041,7 @@ int f_rmdir(char* path_name, int flag) {
             if (strcmp(cur->name, path->tokens[count]) != 0) {
                 cur = findDirent(inode_data[cur->inode], path->tokens[count]);
                 if (cur == NULL) {
-                    printf("failed to remove 's': No such file or directory\n",path_name);
+                    printf("failed to remove '%s': No such file or directory\n",path_name);
                     freeTokenizer(path);
                     return -1;
                 }
@@ -1123,7 +1123,6 @@ int f_rmdir(char* path_name, int flag) {
 }
 
 int f_write(File* file, void* buffer, int num){
-
     if(file==NULL){return -1;}
 
 	// check the mode of FILE, if it is not allowed, return -1
@@ -1138,6 +1137,7 @@ int f_write(File* file, void* buffer, int num){
     // write content
     while(written_num<num){
         int avail_bytes = block_size - file->position;
+        //printf("avail_bytes:%d\n",avail_bytes);
         // get to the current position of the file according to block_index and position
         char* data = appendPosition(inode,file->block_index,file->position,1);
 	    // if there is no more space
@@ -1204,11 +1204,9 @@ int f_read(File *file, void* buffer, int num){
         }else{
             file->position+=need_bytes;
         }
-        //printf("need_bytes:%d, read_num:%d, remained:%d\n",need_bytes,read_num,remained_bytes);
         memcpy((char*)buffer+read_num,data,need_bytes);
         read_num += need_bytes;
         remained_bytes -= need_bytes;
-        //printf("need_bytes:%d, read_num:%d, remained:%d\n",need_bytes,read_num,remained_bytes);
         //printf("\n");
     }
     return read_num;
@@ -1230,7 +1228,7 @@ int f_stat(char* filename){
         }
         printf("File size: %d\n", getInode(curdir->inode)->size);
         printf("File type: directory\n");
-        printf("Inode index: %d\n", curdir->inode);
+        printf("Inode indexs: %d\n", curdir->inode);
         printf("Number of hard link: %d\n", getInode(curdir->inode)->nlink);
         printf("Permission: %d\n", getInode(curdir->inode)->permissions);
         f_closedir(curdir);
