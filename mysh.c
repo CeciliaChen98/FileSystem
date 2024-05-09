@@ -782,7 +782,7 @@ int verifyuser(char* username, char* password) {
 
 int main() {
     if(disk_open("DISK")!=1){
-        printf("Cannot load DISK\n");
+        printf("Cannot load DISK, please run ./format DISK to create a disk.\n");
         return -1;
     }
 
