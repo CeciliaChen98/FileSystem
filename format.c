@@ -325,7 +325,7 @@ int main(int argc, char* argv[]) {
         }
     }
     create_disk_image(file_name, size_mb);
-    print_disk_contents(file_name);
+    //print_disk_contents(file_name);
     return 0;
 }
 

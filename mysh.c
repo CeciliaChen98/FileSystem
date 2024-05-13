@@ -188,11 +188,20 @@ int get_terminal_size(int *rows, int *cols) {
 }
 
 void more_command(char *args[], char* output) {
+    if(args[1]==NULL){
+        printf( "more: missing operand\nTry 'more --help' for more information.\n");
+        return;
+    }else if(strcmp(args[1],"--help")==0){
+        printf("Usage: more FILE...\nto display files on a terminal size at a time\n Press ENTER to flip pages\n Press q or Q to exit\n");
+        return;
+    }
     int rows, cols;
     if (get_terminal_size(&rows, &cols) != 0) {
         printf("more: faults when trying to get the screen size\n");
         return;
     }
+    //printf("rows: %d, cols: %d\n", rows, cols);
+    
 
     File *output_file = NULL;
     if (output_flag == APPEND) {
@@ -212,6 +221,7 @@ void more_command(char *args[], char* output) {
         }
 
         int line_count = 0;
+        int char_count = 0;
         while (f_read(file, buffer, 1) == 1) {
             if (output_flag == PRINT) {
                 printf("%s",buffer);
@@ -220,13 +230,19 @@ void more_command(char *args[], char* output) {
                     f_write(output_file,buffer, 1);
                 }
             }
-            if (buffer[0] == '\n') {
+            char_count++;
+            if (char_count >= cols) {
                 line_count++;
+                char_count = 0;
             }
             if (line_count >= rows - 1) {
                 printf("Press ENTER to continue...");
-                while (getchar() != '\n'); // Wait for Enter key
-                line_count = 0; // Reset line count
+                char c = getchar();
+                if (c == 'q' || c == 'Q') {
+                    break;
+                } else if (c == '\n') {
+                    line_count = 0; // Reset line count
+                }
             }
         }
     

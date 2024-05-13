@@ -1265,7 +1265,7 @@ static struct dirent* createDirectory(struct dirent* cur_dirent, char* name){
 
     // modify the inode to store all the information
     file_inode -> type = DIRECTORY_TYPE;
-    file_inode -> permissions = RWx;
+    file_inode -> permissions = NONE;
     file_inode -> parent = cur_dirent->inode;
     file_inode -> nlink = 0;
     file_inode -> uid = current_user->uid;
