@@ -31,6 +31,6 @@ mysh: mysh.o
 
 # Clean rule to remove generated files
 clean:
-	rm -f *.o test mysh libfilesystem.so libjob.so format 2> /dev/null
+	rm -f *.o test mysh libfilesystem.so libjob.so temp.txt format 2> /dev/null
 
 
